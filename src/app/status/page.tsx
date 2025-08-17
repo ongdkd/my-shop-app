@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 interface HealthStatus {
   status: string;
@@ -24,7 +25,7 @@ export default function StatusPage() {
         } else {
           setError('Health check failed');
         }
-      } catch (err) {
+      } catch {
         setError('Failed to fetch health status');
       } finally {
         setLoading(false);
@@ -124,12 +125,12 @@ export default function StatusPage() {
         </div>
 
         <div className="text-center mt-8">
-          <a
+          <Link
             href="/"
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             ← Back to Application
-          </a>
+          </Link>
         </div>
       </div>
     </div>

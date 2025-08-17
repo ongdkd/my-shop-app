@@ -5,6 +5,7 @@ import React, { useEffect, useState, useRef, Suspense } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { useOrderStore } from "@/store/orderStore";
 import Link from "next/link";
+import Image from "next/image";
 import {
   CheckCircleIcon,
   DocumentArrowDownIcon,
@@ -217,9 +218,11 @@ function OrderCompleteContent() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         {item.image && (
-                          <img
+                          <Image
                             src={item.image}
                             alt={item.name}
+                            width={48}
+                            height={48}
                             className="w-12 h-12 object-cover rounded border"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;

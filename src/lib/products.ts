@@ -90,7 +90,7 @@ const defaultPosMappings: PosProductMapping[] = [
 // Load products from localStorage or use defaults
 const loadProducts = (): Product[] => {
   if (typeof window === "undefined") return defaultProducts;
-  
+
   try {
     const stored = localStorage.getItem(PRODUCTS_STORAGE_KEY);
     if (stored) {
@@ -99,14 +99,14 @@ const loadProducts = (): Product[] => {
   } catch (error) {
     console.error("Error loading products from localStorage:", error);
   }
-  
+
   return defaultProducts;
 };
 
 // Load POS mappings from localStorage or use defaults
 const loadPosMappings = (): PosProductMapping[] => {
   if (typeof window === "undefined") return defaultPosMappings;
-  
+
   try {
     const stored = localStorage.getItem(POS_MAPPINGS_STORAGE_KEY);
     if (stored) {
@@ -115,14 +115,14 @@ const loadPosMappings = (): PosProductMapping[] => {
   } catch (error) {
     console.error("Error loading POS mappings from localStorage:", error);
   }
-  
+
   return defaultPosMappings;
 };
 
 // Save products to localStorage
 const saveProducts = (products: Product[]): void => {
   if (typeof window === "undefined") return;
-  
+
   try {
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
   } catch (error) {
@@ -133,7 +133,7 @@ const saveProducts = (products: Product[]): void => {
 // Save POS mappings to localStorage
 const savePosMappings = (mappings: PosProductMapping[]): void => {
   if (typeof window === "undefined") return;
-  
+
   try {
     localStorage.setItem(POS_MAPPINGS_STORAGE_KEY, JSON.stringify(mappings));
   } catch (error) {
@@ -146,27 +146,29 @@ export const getProductsByPosId = async (
 ): Promise<Product[] | null> => {
   const products = loadProducts();
   const mappings = loadPosMappings();
-  
-  const mapping = mappings.find(m => m.posId === posId);
+
+  const mapping = mappings.find((m) => m.posId === posId);
   if (!mapping) return [];
-  
-  const posProducts = products.filter(product => 
+
+  const posProducts = products.filter((product) =>
     mapping.productIds.includes(product.id)
   );
-  
+
   // Filter out hidden products for customer-facing POS
-  return posProducts.filter(product => !product.hidden);
+  return posProducts.filter((product) => !product.hidden);
 };
 
-export const getProducts = async (includeHidden: boolean = true): Promise<Product[]> => {
+export const getProducts = async (
+  includeHidden: boolean = true
+): Promise<Product[]> => {
   const allProducts = loadProducts();
-  
+
   if (includeHidden) {
     return allProducts;
   }
-  
+
   // Filter out hidden products
-  return allProducts.filter(product => !product.hidden);
+  return allProducts.filter((product) => !product.hidden);
 };
 
 export const getPosMappings = (): PosProductMapping[] => {
@@ -184,8 +186,8 @@ export const updateProduct = async (
   updatedProduct: Partial<Product>
 ): Promise<void> => {
   const products = loadProducts();
-  const productIndex = products.findIndex(p => p.id === productId);
-  
+  const productIndex = products.findIndex((p) => p.id === productId);
+
   if (productIndex !== -1) {
     products[productIndex] = {
       ...products[productIndex],
@@ -197,14 +199,14 @@ export const updateProduct = async (
 
 export const deleteProduct = async (productId: string): Promise<void> => {
   const products = loadProducts();
-  const filteredProducts = products.filter(p => p.id !== productId);
+  const filteredProducts = products.filter((p) => p.id !== productId);
   saveProducts(filteredProducts);
-  
+
   // Also remove from all POS mappings
   const mappings = loadPosMappings();
-  const updatedMappings = mappings.map(mapping => ({
+  const updatedMappings = mappings.map((mapping) => ({
     ...mapping,
-    productIds: mapping.productIds.filter(id => id !== productId)
+    productIds: mapping.productIds.filter((id) => id !== productId),
   }));
   savePosMappings(updatedMappings);
 };

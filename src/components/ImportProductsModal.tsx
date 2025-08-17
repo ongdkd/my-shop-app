@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { Product } from "@/types";
 import { XMarkIcon, DocumentArrowUpIcon, LinkIcon } from "@heroicons/react/24/outline";
 
@@ -200,7 +201,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImportProducts,
               break;
             }
           }
-        } catch (err) {
+        } catch {
           continue;
         }
       }
@@ -470,9 +471,11 @@ iPad Pro,https://example.com/ipad.jpg,45000,22500,8`;
                         <td className="px-4 py-2 text-sm text-gray-900">{product.name}</td>
                         <td className="px-4 py-2 text-sm text-gray-900">
                           {product.image ? (
-                            <img 
+                            <Image 
                               src={product.image} 
                               alt={product.name}
+                              width={48}
+                              height={48}
                               className="w-12 h-12 object-cover rounded border"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;

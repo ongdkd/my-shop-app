@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { Product } from "@/types";
 import { uploadImageWithFallback } from "@/lib/imageUpload";
 import { XMarkIcon, QrCodeIcon } from "@heroicons/react/24/outline";
@@ -253,9 +254,11 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
 
               {imagePreview && (
                 <div className="mt-2">
-                  <img
+                  <Image
                     src={imagePreview}
                     alt="Preview"
+                    width={80}
+                    height={80}
                     className="w-20 h-20 object-cover rounded-md border"
                   />
                 </div>

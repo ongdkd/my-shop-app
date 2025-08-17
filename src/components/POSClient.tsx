@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import ProductCard from "./ProductCard";
 import Sidebar from "./Sidebar";
 import CartPanel from "./CartPanel";
@@ -72,9 +73,11 @@ export default function POSClient({ products, posId }: POSClientProps) {
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
           {/* Logo and User Info */}
           <div className="flex items-center gap-2 sm:gap-4">
-            <img
+            <Image
               src="/images/logo.png"
               alt="MyShop Logo"
+              width={120}
+              height={40}
               className="h-8 sm:h-10 w-auto"
             />
             <div className="hidden sm:block">
@@ -169,9 +172,11 @@ export default function POSClient({ products, posId }: POSClientProps) {
                   className="bg-white rounded-lg border p-3 sm:p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center gap-3 sm:gap-4">
-                    <img
+                    <Image
                       src={product.image || "/images/place-holder.png"}
                       alt={product.name}
+                      width={64}
+                      height={64}
                       className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded border flex-shrink-0"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;

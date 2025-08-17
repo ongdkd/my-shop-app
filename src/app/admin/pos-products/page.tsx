@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Product, PosTerminal, PosProductMapping } from "@/types";
 import {
   getProducts,
@@ -25,7 +26,7 @@ export default function AdminPosProductsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [showHiddenProducts, setShowHiddenProducts] = useState(false);
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
@@ -516,10 +517,11 @@ export default function AdminPosProductsPage() {
                   }`}
                 >
                   <div className="aspect-square bg-gray-100 relative">
-                    <img
+                    <Image
                       src={product.image || "/images/place-holder.png"}
                       alt={product.name}
-                      className={`w-full h-full object-cover ${
+                      fill
+                      className={`object-cover ${
                         product.hidden ? "grayscale" : ""
                       }`}
                       onError={(e) => {
@@ -735,9 +737,11 @@ export default function AdminPosProductsPage() {
                         </td>
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <img
+                            <Image
                               src={product.image || "/images/place-holder.png"}
                               alt={product.name}
+                              width={48}
+                              height={48}
                               className={`w-10 h-10 sm:w-12 sm:h-12 object-cover rounded border mr-3 sm:mr-4 ${
                                 product.hidden ? "grayscale" : ""
                               }`}
@@ -820,9 +824,11 @@ export default function AdminPosProductsPage() {
                         className="rounded border-gray-300 mt-1"
                       />
 
-                      <img
+                      <Image
                         src={product.image || "/images/place-holder.png"}
                         alt={product.name}
+                        width={64}
+                        height={64}
                         className={`w-16 h-16 object-cover rounded border ${
                           product.hidden ? "grayscale" : ""
                         }`}

@@ -3,6 +3,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { XMarkIcon, PlusIcon, MinusIcon } from "@heroicons/react/24/outline";
 import { useCartStore } from "@/store/cartStore";
 
@@ -60,10 +61,16 @@ export default function CartPanel({ isOpen, onClose }: CartPanelProps) {
                   >
                     <div className="flex items-start gap-4">
                       {item.image && (
-                        <img
+                        <Image
                           src={item.image}
                           alt={item.name}
+                          width={64}
+                          height={64}
                           className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = "/images/place-holder.png";
+                          }}
                         />
                       )}
 

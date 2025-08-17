@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Product } from "@/types";
 import { uploadImageWithFallback } from "@/lib/imageUpload";
 import { XMarkIcon, QrCodeIcon } from "@heroicons/react/24/outline";
@@ -28,7 +29,7 @@ export default function EditProductModal({
     stock: "",
     image: "",
   });
-  
+
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
@@ -50,11 +51,13 @@ export default function EditProductModal({
     }
   }, [product]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -71,16 +74,16 @@ export default function EditProductModal({
   };
 
   const handleBarcodeScanned = (barcode: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      productId: barcode
+      productId: barcode,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!product) return;
-    
+
     setIsSubmitting(true);
 
     try {
@@ -254,12 +257,14 @@ export default function EditProductModal({
               <p className="text-xs text-gray-500">
                 Image will be uploaded to imgbb.com for free hosting
               </p>
-              
+
               {imagePreview && (
                 <div className="mt-2">
-                  <img
+                  <Image
                     src={imagePreview}
                     alt="Preview"
+                    width={80}
+                    height={80}
                     className="w-20 h-20 object-cover rounded-md border"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
@@ -268,7 +273,7 @@ export default function EditProductModal({
                   />
                 </div>
               )}
-              
+
               <input
                 type="url"
                 name="image"

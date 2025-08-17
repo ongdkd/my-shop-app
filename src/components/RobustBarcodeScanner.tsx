@@ -37,7 +37,7 @@ export default function RobustBarcodeScanner({
     return () => {
       cleanupScanner();
     };
-  }, [isOpen]);
+  }, [isOpen, cleanupScanner]);
 
   const loadCamerasAndStart = async () => {
     try {
@@ -133,7 +133,7 @@ export default function RobustBarcodeScanner({
         isInitializingRef.current = false;
       }
     },
-    [onScanResult]
+    [onScanResult, cleanupScanner]
   );
 
   const cleanupScanner = useCallback(async () => {

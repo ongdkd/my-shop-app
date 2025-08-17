@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useCartStore } from "@/store/cartStore";
 import { useOrderStore } from "@/store/orderStore";
 import Link from "next/link";
@@ -104,9 +105,11 @@ export default function CheckoutPage() {
               return (
                 <div key={item.id} className="flex items-start gap-3 sm:gap-4 py-3 border-b border-gray-100 last:border-b-0">
                   {item.image && (
-                    <img
+                    <Image
                       src={item.image}
                       alt={item.name}
+                      width={64}
+                      height={64}
                       className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded border flex-shrink-0"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;

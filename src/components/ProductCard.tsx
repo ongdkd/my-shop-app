@@ -1,5 +1,6 @@
 // app/component/ProductCard.tsx
 import React from "react";
+import Image from "next/image";
 import type { Product } from "@/types";
 import { useCartStore } from "@/store/cartStore";
 
@@ -44,10 +45,11 @@ export default function ProductCard({
       >
         {/* Product Image */}
         <div className="aspect-square bg-gray-100 relative overflow-hidden">
-          <img
+          <Image
             src={product.image || "/images/place-holder.png"}
             alt={product.name}
-            className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+            fill
+            className={`object-cover transition-transform duration-300 group-hover:scale-105 ${
               isOutOfStock ? "grayscale" : ""
             }`}
             onError={(e) => {
