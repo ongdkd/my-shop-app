@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { XMarkIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { Html5Qrcode } from "html5-qrcode";
-// Removed unused import
 
 interface RobustBarcodeScannerProps {
   isOpen: boolean;
@@ -27,41 +26,34 @@ export default function RobustBarcodeScanner({
   const isInitializingRef = useRef(false);
   const isCleaningUpRef = useRef(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadCamerasAndStart();
-    } else {
-      cleanupScanner();
+  // Define cleanupScanner first to avoid temporal dead zone
+  const cleanupScanner = useCallback(async () => {
+    if (isCleaningUpRef.current) {
+      console.log("Already cleaning up scanner");
+      return;
     }
 
-    return () => {
-      cleanupScanner();
-    };
-  }, [isOpen, cleanupScanner]);
+    isCleaningUpRef.current = true;
 
-  const loadCamerasAndStart = async () => {
     try {
-      const devices = await Html5Qrcode.getCameras();
+      if (html5QrcodeRef.current) {
+        const state = html5QrcodeRef.current.getState();
 
-      // Select back camera if available, otherwise first camera
-      const backCamera = devices.find(
-        (device) =>
-          device.label.toLowerCase().includes("back") ||
-          device.label.toLowerCase().includes("rear") ||
-          device.label.toLowerCase().includes("environment")
-      );
+        if (state === 2) {
+          // SCANNING state
+          await html5QrcodeRef.current.stop();
+        }
 
-      const selectedCamera = backCamera || devices[0];
-      if (selectedCamera) {
-        setSelectedCameraId(selectedCamera.id);
-        // Auto-start the scanner
-        await initializeScannerWithCamera(selectedCamera.id);
+        html5QrcodeRef.current = null;
       }
+
+      setScannerState("idle");
     } catch (err) {
-      console.error("Error loading cameras:", err);
-      setError("Unable to access cameras. Please check permissions.");
+      console.warn("Error during cleanup:", err);
+    } finally {
+      isCleaningUpRef.current = false;
     }
-  };
+  }, []);
 
   const initializeScannerWithCamera = useCallback(
     async (cameraId: string) => {
@@ -92,7 +84,8 @@ export default function RobustBarcodeScanner({
           if (isValidBarcodeFlexible(decodedText)) {
             setLastScannedBarcode(decodedText);
             onScanResult(decodedText);
-            handleClose();
+            cleanupScanner();
+            onClose();
           }
         };
 
@@ -133,36 +126,44 @@ export default function RobustBarcodeScanner({
         isInitializingRef.current = false;
       }
     },
-    [onScanResult, cleanupScanner]
+    [onScanResult, cleanupScanner, onClose]
   );
 
-  const cleanupScanner = useCallback(async () => {
-    if (isCleaningUpRef.current) {
-      console.log("Already cleaning up scanner");
-      return;
-    }
-
-    isCleaningUpRef.current = true;
-
+  const loadCamerasAndStart = useCallback(async () => {
     try {
-      if (html5QrcodeRef.current) {
-        const state = html5QrcodeRef.current.getState();
+      const devices = await Html5Qrcode.getCameras();
 
-        if (state === 2) {
-          // SCANNING state
-          await html5QrcodeRef.current.stop();
-        }
+      // Select back camera if available, otherwise first camera
+      const backCamera = devices.find(
+        (device) =>
+          device.label.toLowerCase().includes("back") ||
+          device.label.toLowerCase().includes("rear") ||
+          device.label.toLowerCase().includes("environment")
+      );
 
-        html5QrcodeRef.current = null;
+      const selectedCamera = backCamera || devices[0];
+      if (selectedCamera) {
+        setSelectedCameraId(selectedCamera.id);
+        // Auto-start the scanner
+        await initializeScannerWithCamera(selectedCamera.id);
       }
-
-      setScannerState("idle");
     } catch (err) {
-      console.warn("Error during cleanup:", err);
-    } finally {
-      isCleaningUpRef.current = false;
+      console.error("Error loading cameras:", err);
+      setError("Unable to access cameras. Please check permissions.");
     }
-  }, []);
+  }, [initializeScannerWithCamera]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadCamerasAndStart();
+    } else {
+      cleanupScanner();
+    }
+
+    return () => {
+      cleanupScanner();
+    };
+  }, [isOpen, cleanupScanner, loadCamerasAndStart]);
 
   const isValidBarcodeFlexible = (barcode: string): boolean => {
     if (!barcode) return false;
