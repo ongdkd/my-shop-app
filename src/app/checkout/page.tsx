@@ -4,15 +4,17 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useCartStore } from "@/store/cartStore";
-import { useOrderStore } from "@/store/orderStore";
+import { useOrderMutations } from "@/store/orderStore-api";
+import { handleApiError } from "@/lib/api";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 export default function CheckoutPage() {
   const { cart, userName, userPhone, currentPosId, clearCart } = useCartStore();
-  const { addOrder } = useOrderStore();
+  const { createOrder, loading: apiLoading, error: apiError } = useOrderMutations();
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const totalPrice = cart.reduce((sum, item) => {
     const price = item.paymentType === "deposit" 
@@ -31,22 +33,24 @@ export default function CheckoutPage() {
     if (cart.length === 0) return;
 
     setIsProcessing(true);
+    setSubmitError(null);
     
     try {
-      const orderId = addOrder({
-        userName,
-        posId: currentPosId || "pos1",
-        items: cart,
-        totalAmount: totalPrice,
-        depositAmount,
-        status: "completed"
-      });
+      // Determine payment method based on cart items
+      const hasDeposits = cart.some(item => item.paymentType === "deposit");
+      const paymentMethod = hasDeposits ? "cash" : "cash"; // Default to cash for now
+      
+      const orderId = await createOrder(cart, currentPosId || undefined, paymentMethod);
 
-      clearCart();
-      router.push(`/order-complete?orderId=${orderId}&posId=${currentPosId || "pos1"}`);
+      if (orderId) {
+        clearCart();
+        router.push(`/order-complete?orderId=${orderId}&posId=${currentPosId || "pos1"}`);
+      } else {
+        setSubmitError("Failed to create order. Please try again.");
+      }
     } catch (error) {
       console.error("Error processing order:", error);
-      alert("Failed to process order. Please try again.");
+      setSubmitError(handleApiError(error));
     } finally {
       setIsProcessing(false);
     }
@@ -157,15 +161,31 @@ export default function CheckoutPage() {
           </div>
         </div>
 
+        {/* Error Display */}
+        {(submitError || apiError) && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 sm:mb-6">
+            <p className="text-sm text-red-600">
+              {submitError || apiError}
+            </p>
+          </div>
+        )}
+
         {/* Complete Order Button - Fixed on mobile */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t sm:relative sm:bottom-auto sm:left-auto sm:right-auto sm:p-0 sm:bg-transparent sm:border-t-0">
           <button
             onClick={handleCompleteOrder}
-            disabled={isProcessing}
+            disabled={isProcessing || apiLoading}
             className="w-full bg-green-600 text-white py-3 sm:py-4 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors font-medium text-base sm:text-lg disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[44px]"
             style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
           >
-            {isProcessing ? "Processing..." : "Complete Order"}
+            {isProcessing || apiLoading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Processing...
+              </div>
+            ) : (
+              "Complete Order"
+            )}
           </button>
         </div>
       </div>

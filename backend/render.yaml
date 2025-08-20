@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: pos-backend-api
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: API_VERSION
+        value: v1
+      - key: API_PREFIX
+        value: /api
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_FORMAT
+        value: combined
+      - key: HELMET_ENABLED
+        value: true
+      - key: CORS_ENABLED
+        value: true
+    # Environment variables that need to be set in Render dashboard:
+    # - SUPABASE_URL (from your Supabase project)
+    # - SUPABASE_ANON_KEY (from your Supabase project)
+    # - SUPABASE_SERVICE_ROLE_KEY (from your Supabase project)
+    # - JWT_SECRET (generate a secure random string)
+    # - FRONTEND_URL (your frontend deployment URL)
+    # - ALLOWED_ORIGINS (comma-separated list of allowed origins)
+    # - DATABASE_URL (optional - PostgreSQL connection string)

@@ -6,7 +6,7 @@ import { useCartStore } from "@/store/cartStore";
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: () => void;
+  onAddToCart: () => Promise<void>;
 }
 
 export default function ProductCard({
@@ -35,7 +35,7 @@ export default function ProductCard({
       )}
 
       <button
-        onClick={onAddToCart}
+        onClick={() => onAddToCart()}
         disabled={isOutOfStock}
         className={`w-full bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all text-left ${
           isOutOfStock 

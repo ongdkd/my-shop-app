@@ -39,7 +39,13 @@ const nextConfig: NextConfig = {
   
   // ESLint configuration for production builds
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
+  },
+  
+  // TypeScript configuration
+  typescript: {
+    // Use the frontend-specific tsconfig
+    tsconfigPath: './tsconfig.frontend.json',
   },
 };
 

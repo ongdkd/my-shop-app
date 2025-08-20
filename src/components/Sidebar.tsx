@@ -5,10 +5,12 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon, UserIcon } from "@heroicons/react/24/outline";
 import { useCartStore } from "@/store/cartStore";
+import { useAuth } from "@/contexts/AuthContext";
 import { getActivePosTerminals } from "@/lib/posData";
 import { PosTerminal } from "@/types";
+import UserProfile from "./UserProfile";
 
 export default function Sidebar({
   open,
@@ -21,7 +23,9 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const { userName } = useCartStore();
+  const { user, isAuthenticated } = useAuth();
   const [activePosTerminals, setActivePosTerminals] = useState<PosTerminal[]>([]);
+  const [showUserProfile, setShowUserProfile] = useState(false);
 
   useEffect(() => {
     setOpen(false);
@@ -165,19 +169,36 @@ export default function Sidebar({
           )}
 
           {/* User Info */}
-          {userName && (
+          {(userName || (isAuthenticated() && user)) && (
             <>
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-4">
                 Current User
               </div>
-              <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm text-gray-700 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                {userName}
-              </div>
+              {isAuthenticated() && user ? (
+                <button
+                  onClick={() => setShowUserProfile(true)}
+                  className="w-full px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm text-gray-700 flex items-center gap-2 transition-colors"
+                >
+                  <UserIcon className="w-4 h-4" />
+                  <span className="flex-1 text-left truncate">{user.name}</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                </button>
+              ) : (
+                <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm text-gray-700 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                  {userName}
+                </div>
+              )}
             </>
           )}
         </nav>
       </aside>
+
+      {/* User Profile Modal */}
+      <UserProfile 
+        isOpen={showUserProfile} 
+        onClose={() => setShowUserProfile(false)} 
+      />
     </>
   );
 }

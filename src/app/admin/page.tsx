@@ -2,51 +2,53 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useOrderStore } from "@/store/orderStore";
+import { useOrdersQuery, usePOSTerminalsQuery } from "@/lib/api";
 import { useState, useEffect } from "react";
-import { getActivePosTerminals } from "@/lib/posData";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function AdminPage() {
   const router = useRouter();
-  const { orders, getTotalRevenue, getTodayOrders } = useOrderStore();
+  const { data: ordersData, isLoading: ordersLoading, refetch: refreshOrders } = useOrdersQuery({ limit: 100 });
+  const { data: posTerminals, isLoading: posLoading } = usePOSTerminalsQuery(true); // Get active terminals only
+  
+  // Convert API orders to legacy format for compatibility
+  const orders = ordersData?.data || [];
   const [isClient, setIsClient] = useState(false);
-  const [activePosCount, setActivePosCount] = useState(0);
   
   useEffect(() => {
     setIsClient(true);
     
-    // Load active POS count
-    const loadActivePosCount = () => {
-      const activePos = getActivePosTerminals();
-      setActivePosCount(activePos.length);
-    };
-
-    loadActivePosCount();
-
-    // Listen for POS updates
-    const handlePosUpdate = () => {
-      loadActivePosCount();
-    };
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "pos-terminals-data") {
-        loadActivePosCount();
-      }
-    };
-
-    window.addEventListener("posTerminalUpdated", handlePosUpdate);
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("focus", loadActivePosCount);
+    // Refresh data periodically
+    const refreshInterval = setInterval(() => {
+      refreshOrders();
+    }, 30000); // Refresh every 30 seconds
 
     return () => {
-      window.removeEventListener("posTerminalUpdated", handlePosUpdate);
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("focus", loadActivePosCount);
+      clearInterval(refreshInterval);
     };
-  }, []);
+  }, [refreshOrders]);
+
+  // Calculate stats from API data
+  const getTodayOrders = () => {
+    if (!isClient || !orders) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return orders.filter(order => {
+      const orderDate = new Date(order.order_date);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === today.getTime();
+    });
+  };
+
+  const getTotalRevenue = () => {
+    if (!isClient || !orders) return 0;
+    return orders.reduce((total, order) => total + order.total_amount, 0);
+  };
   
-  const todayOrders = isClient ? getTodayOrders() : [];
-  const totalRevenue = isClient ? getTotalRevenue() : 0;
+  const todayOrders = getTodayOrders();
+  const totalRevenue = getTotalRevenue();
+  const activePosCount = posTerminals?.length || 0;
 
   const adminRoutes = [
     {
@@ -59,7 +61,7 @@ export default function AdminPage() {
         </svg>
       ),
       color: "bg-blue-500",
-      stats: isClient ? `${todayOrders.length} orders today` : "0 orders today"
+      stats: `${todayOrders.length} orders today`
     },
     {
       title: "POS Terminals",
@@ -71,7 +73,7 @@ export default function AdminPage() {
         </svg>
       ),
       color: "bg-purple-500",
-      stats: isClient ? `${activePosCount} terminals active` : "0 terminals active"
+      stats: `${activePosCount} terminals active`
     },
     {
       title: "POS Operations",
@@ -95,14 +97,14 @@ export default function AdminPage() {
         </svg>
       ),
       color: "bg-indigo-500",
-      stats: isClient ? `${orders.length} total orders` : "0 total orders"
+      stats: `${orders?.length || 0} total orders`
     }
   ];
 
   const quickStats = [
     {
       title: "Today's Revenue",
-      value: isClient ? `$${totalRevenue.toFixed(2)}` : "$0.00",
+      value: `$${totalRevenue.toFixed(2)}`,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
@@ -112,7 +114,7 @@ export default function AdminPage() {
     },
     {
       title: "Orders Today",
-      value: isClient ? todayOrders.length.toString() : "0",
+      value: todayOrders.length.toString(),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -122,7 +124,7 @@ export default function AdminPage() {
     },
     {
       title: "Total Orders",
-      value: isClient ? orders.length.toString() : "0",
+      value: (orders?.length || 0).toString(),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -132,7 +134,7 @@ export default function AdminPage() {
     },
     {
       title: "Active POS",
-      value: isClient ? activePosCount.toString() : "0",
+      value: activePosCount.toString(),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -143,7 +145,8 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AuthGuard requiredRole="admin">
+      <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -155,6 +158,16 @@ export default function AdminPage() {
           </p>
         </div>
 
+        {/* Loading State */}
+        {(ordersLoading || posLoading) && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-blue-700">Loading dashboard data...</p>
+            </div>
+          </div>
+        )}
+
         {/* Quick Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
           {quickStats.map((stat, index) => (
@@ -165,7 +178,9 @@ export default function AdminPage() {
                 </div>
                 <div className="sm:ml-4 min-w-0">
                   <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">{stat.title}</p>
-                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">{stat.value}</p>
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">
+                    {(ordersLoading || posLoading) ? "..." : stat.value}
+                  </p>
                 </div>
               </div>
             </div>
@@ -267,5 +282,6 @@ export default function AdminPage() {
         </div>
       </div>
     </div>
+    </AuthGuard>
   );
 }

@@ -6,9 +6,11 @@ import Image from "next/image";
 import ProductCard from "./ProductCard";
 import Sidebar from "./Sidebar";
 import CartPanel from "./CartPanel";
+import RobustBarcodeScanner from "./RobustBarcodeScanner";
 import { useEffect, useState } from "react";
-import { ShoppingCartIcon } from "@heroicons/react/24/outline";
+import { ShoppingCartIcon, QrCodeIcon } from "@heroicons/react/24/outline";
 import { useCartStore } from "@/store/cartStore";
+import { apiClient, handleApiError } from "@/lib/api";
 import type { Product } from "@/types";
 
 interface POSClientProps {
@@ -22,6 +24,8 @@ export default function POSClient({ products, posId }: POSClientProps) {
   const [showCart, setShowCart] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   const totalItems = getTotalItems();
 
@@ -49,8 +53,45 @@ export default function POSClient({ products, posId }: POSClientProps) {
     };
   }, [sidebarOpen, showCart]);
 
-  const handleAddToCart = (product: Product) => {
-    addToCart(product);
+  const handleAddToCart = async (product: Product) => {
+    await addToCart(product);
+  };
+
+  const handleBarcodeScanned = async (barcode: string) => {
+    setScanError(null);
+    
+    try {
+      // Use the database API to find product by barcode
+      const apiProduct = await apiClient.getProductByBarcode(barcode);
+      
+      if (apiProduct) {
+        // Convert API product to legacy format
+        const product: Product = {
+          id: apiProduct.id,
+          name: apiProduct.name,
+          price: apiProduct.price,
+          deposit: apiProduct.price * 0.5, // Default to 50% deposit
+          description: apiProduct.category || "",
+          stock: apiProduct.stock_quantity === 0 ? 0 : apiProduct.stock_quantity || "",
+          image: apiProduct.image_url || "/images/place-holder.png",
+          hidden: !apiProduct.is_active,
+        };
+
+        // Check if product is available in current POS
+        const isAvailable = products.some(p => p.id === product.id);
+        
+        if (isAvailable) {
+          await handleAddToCart(product);
+          setShowBarcodeScanner(false);
+        } else {
+          setScanError("Product not available in this POS terminal");
+        }
+      } else {
+        setScanError("Product not found");
+      }
+    } catch (error) {
+      setScanError(handleApiError(error));
+    }
   };
 
   return (
@@ -94,18 +135,30 @@ export default function POSClient({ products, posId }: POSClientProps) {
             )}
           </div>
 
-          {/* Cart Button */}
-          <button
-            onClick={() => setShowCart(true)}
-            className="relative bg-blue-600 p-2.5 sm:p-3 rounded-xl shadow-lg hover:bg-blue-700 transition-colors touch-manipulation"
-          >
-            <ShoppingCartIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            {totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white text-xs font-bold min-w-5 h-5 sm:min-w-6 sm:h-6 flex items-center justify-center rounded-full px-1 animate-pulse">
-                {totalItems}
-              </span>
-            )}
-          </button>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
+            {/* Barcode Scanner Button */}
+            <button
+              onClick={() => setShowBarcodeScanner(true)}
+              className="bg-gray-600 p-2.5 sm:p-3 rounded-xl shadow-lg hover:bg-gray-700 transition-colors touch-manipulation"
+              title="Scan Barcode"
+            >
+              <QrCodeIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            </button>
+
+            {/* Cart Button */}
+            <button
+              onClick={() => setShowCart(true)}
+              className="relative bg-blue-600 p-2.5 sm:p-3 rounded-xl shadow-lg hover:bg-blue-700 transition-colors touch-manipulation"
+            >
+              <ShoppingCartIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white text-xs font-bold min-w-5 h-5 sm:min-w-6 sm:h-6 flex items-center justify-center rounded-full px-1 animate-pulse">
+                  {totalItems}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -201,7 +254,7 @@ export default function POSClient({ products, posId }: POSClientProps) {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleAddToCart(product)}
+                      onClick={async () => await handleAddToCart(product)}
                       className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base font-medium touch-manipulation flex-shrink-0"
                     >
                       <span className="hidden sm:inline">Add to Cart</span>
@@ -236,6 +289,30 @@ export default function POSClient({ products, posId }: POSClientProps) {
       </main>
 
       <CartPanel isOpen={showCart} onClose={() => setShowCart(false)} />
+      
+      <RobustBarcodeScanner
+        isOpen={showBarcodeScanner}
+        onClose={() => {
+          setShowBarcodeScanner(false);
+          setScanError(null);
+        }}
+        onScanResult={handleBarcodeScanned}
+      />
+
+      {/* Scan Error Toast */}
+      {scanError && (
+        <div className="fixed top-20 left-4 right-4 z-50 bg-red-500 text-white p-3 rounded-lg shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">{scanError}</span>
+            <button
+              onClick={() => setScanError(null)}
+              className="ml-2 text-white hover:text-gray-200"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

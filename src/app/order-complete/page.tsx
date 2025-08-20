@@ -3,7 +3,8 @@
 
 import React, { useEffect, useState, useRef, Suspense } from "react";
 import { useCartStore } from "@/store/cartStore";
-import { useOrderStore } from "@/store/orderStore";
+import { useOrderQuery } from "@/lib/api";
+import OrderStatusTracker from "@/components/OrderStatusTracker";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -25,39 +26,52 @@ interface OrderData {
 
 function OrderCompleteContent() {
   const { userName } = useCartStore();
-  const { getOrderById } = useOrderStore();
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  const orderId = searchParams.get("orderId");
+  const posId = searchParams.get("posId") || "pos1";
+  
+  // Use API to fetch order data
+  const { data: apiOrder, isLoading: orderLoading, error: orderError } = useOrderQuery(orderId);
 
   useEffect(() => {
-    const orderId = searchParams.get("orderId");
-    const posId = searchParams.get("posId") || "pos1";
-
     if (!orderId) {
       router.push(`/pos/${posId}`);
       return;
     }
 
-    // Get order from store
-    const order = getOrderById(orderId);
+    if (apiOrder) {
+      // Convert API order to legacy format
+      const cartItems: CartItem[] = apiOrder.order_items.map(item => ({
+        id: item.product?.id || item.product_id || '',
+        name: item.product?.name || 'Unknown Product',
+        price: item.product?.price || item.unit_price,
+        deposit: (item.product?.price || item.unit_price) * 0.5,
+        description: item.product?.category || '',
+        stock: item.product?.stock_quantity || '',
+        image: item.product?.image_url || '/images/place-holder.png',
+        quantity: item.quantity,
+        paymentType: item.unit_price < (item.product?.price || item.unit_price) ? 'deposit' : 'full',
+        posId: apiOrder.pos_terminal_id,
+      }));
 
-    if (order) {
       const orderData: OrderData = {
-        orderId: order.id,
-        items: order.items,
-        total: order.totalAmount,
-        timestamp: new Date(order.timestamp),
-        posId: order.posId,
+        orderId: apiOrder.id,
+        items: cartItems,
+        total: apiOrder.total_amount,
+        timestamp: new Date(apiOrder.order_date),
+        posId: apiOrder.pos_terminal_id || posId,
       };
       setOrderData(orderData);
-    } else {
+    } else if (orderError) {
       // Order not found, redirect
       router.push(`/pos/${posId}`);
     }
-  }, [searchParams, router, getOrderById]);
+  }, [orderId, posId, apiOrder, orderError, router]);
 
   const generateReceiptImage = async () => {
     if (!receiptRef.current || !orderData) return;
@@ -100,12 +114,12 @@ function OrderCompleteContent() {
     }
   };
 
-  if (!orderData) {
+  if (orderLoading || !orderData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Processing order...</p>
+          <p className="text-gray-600">Loading order details...</p>
         </div>
       </div>
     );
@@ -168,9 +182,14 @@ function OrderCompleteContent() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
             Order Complete!
           </h1>
-          <p className="text-gray-600 text-sm sm:text-base">
+          <p className="text-gray-600 text-sm sm:text-base mb-4">
             Your order has been successfully processed
           </p>
+          {orderId && (
+            <div className="flex justify-center">
+              <OrderStatusTracker orderId={orderId} />
+            </div>
+          )}
         </div>
 
         {/* Receipt */}

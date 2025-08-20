@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getProductsByPosId } from "@/lib/products";
+import { getProductsByPosId } from "@/lib/products-api";
 import POSClient from "@/components/POSClient";
 import { notFound } from "next/navigation";
 import { Product } from "@/types";
@@ -38,31 +38,28 @@ export default function POSPage({
       setProducts(productsData);
     };
 
-    // Listen for storage changes (when admin updates products)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "products-data" || e.key === "pos-product-mappings") {
-        reloadProducts();
-      }
-    };
-
-    // Listen for custom product update events
+    // Listen for custom product update events (from admin interface)
     const handleProductUpdate = () => {
       reloadProducts();
     };
 
-    // Listen for focus events (when user returns to tab)
+    // Listen for focus events (when user returns to tab) - refresh from API
     const handleFocus = () => {
       reloadProducts();
     };
 
-    window.addEventListener("storage", handleStorageChange);
+    // Periodic refresh to sync with database changes
+    const refreshInterval = setInterval(() => {
+      reloadProducts();
+    }, 30000); // Refresh every 30 seconds
+
     window.addEventListener("productUpdated", handleProductUpdate);
     window.addEventListener("focus", handleFocus);
 
     return () => {
-      window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("productUpdated", handleProductUpdate);
       window.removeEventListener("focus", handleFocus);
+      clearInterval(refreshInterval);
     };
   }, [posId]);
 

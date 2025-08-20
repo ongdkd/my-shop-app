@@ -3,11 +3,18 @@ services:
     name: my-shop-pos-app
     env: node
     plan: free
+    region: oregon
     buildCommand: npm install && npm run build
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+    # Environment variables that need to be set in Render dashboard:
+    # - NEXT_PUBLIC_SUPABASE_URL (from your Supabase project)
+    # - NEXT_PUBLIC_SUPABASE_ANON_KEY (from your Supabase project)
+    # - NEXT_PUBLIC_API_URL (your deployed backend URL)
+    # - IMGBB_API_KEY (optional - for image uploads)
+    # - POSTIMG_API_KEY (optional - for image uploads)

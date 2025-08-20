@@ -1,12 +1,41 @@
 "use client";
 
-import React from "react";
-import { useOrderStore } from "@/store/orderStore";
+import React, { useEffect } from "react";
+import { useOrdersQuery } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function AdminOrdersPage() {
-  const { orders } = useOrderStore();
+  const { data: ordersData, isLoading: loading, error, refetch: refresh } = useOrdersQuery({ limit: 100 });
   const router = useRouter();
+
+  // Convert API orders to legacy format for compatibility
+  const orders = ordersData?.data?.map(apiOrder => ({
+    id: apiOrder.id,
+    userName: 'Customer', // Default since we don't have customer names
+    posId: apiOrder.pos_terminal_id || 'unknown',
+    items: apiOrder.order_items.map(item => ({
+      id: item.product?.id || item.product_id || '',
+      name: item.product?.name || 'Unknown Product',
+      price: item.product?.price || item.unit_price,
+      quantity: item.quantity,
+    })),
+    totalAmount: apiOrder.total_amount,
+    depositAmount: 0, // Calculate if needed
+    timestamp: new Date(apiOrder.order_date),
+    status: apiOrder.order_status,
+  })) || [];
+
+  useEffect(() => {
+    // Set up periodic refresh
+    const refreshInterval = setInterval(() => {
+      refresh();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, [refresh]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -26,7 +55,8 @@ export default function AdminOrdersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AuthGuard requiredRole="admin">
+      <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -48,15 +78,38 @@ export default function AdminOrdersPage() {
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-red-600">{error.message || 'Failed to load orders'}</p>
+              <button
+                onClick={() => refresh()}
+                className="text-sm text-red-700 hover:text-red-800 font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Orders Table */}
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="p-4 sm:p-6 border-b">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-              All Orders ({orders.length})
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+                All Orders ({orders?.length || 0})
+              </h2>
+              {loading && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                  Loading...
+                </div>
+              )}
+            </div>
           </div>
 
-          {orders.length === 0 ? (
+          {!orders || orders.length === 0 ? (
             <div className="p-8 sm:p-12 text-center">
               <div className="text-gray-400 mb-4">
                 <svg className="w-10 h-10 sm:w-12 sm:h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,10 +117,10 @@ export default function AdminOrdersPage() {
                 </svg>
               </div>
               <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
-                No orders yet
+                {loading ? "Loading orders..." : "No orders yet"}
               </h3>
               <p className="text-gray-600 text-sm sm:text-base">
-                Orders will appear here once customers start purchasing
+                {loading ? "Please wait while we fetch your orders" : "Orders will appear here once customers start purchasing"}
               </p>
             </div>
           ) : (
@@ -183,5 +236,6 @@ export default function AdminOrdersPage() {
         </div>
       </div>
     </div>
+    </AuthGuard>
   );
 }

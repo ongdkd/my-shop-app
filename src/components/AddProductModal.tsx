@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { Product } from "@/types";
 import { uploadImageWithFallback } from "@/lib/imageUpload";
+import { useProductMutations, handleApiError } from "@/lib/api";
 import { XMarkIcon, QrCodeIcon } from "@heroicons/react/24/outline";
 import RobustBarcodeScanner from "./RobustBarcodeScanner";
 
@@ -15,12 +16,14 @@ interface AddProductModalProps {
 }
 
 export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductModalProps) {
-  const generateRandomId = () => {
-    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+  const generateRandomBarcode = () => {
+    return Date.now().toString() + Math.random().toString(36).substring(2, 8);
   };
 
+  const { createProduct, loading: apiLoading, error: apiError } = useProductMutations();
+
   const [formData, setFormData] = useState({
-    productId: generateRandomId(),
+    barcode: generateRandomBarcode(),
     name: "",
     price: "",
     deposit: "",
@@ -32,8 +35,8 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -60,13 +63,13 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
   const handleBarcodeScanned = (barcode: string) => {
     setFormData(prev => ({
       ...prev,
-      productId: barcode
+      barcode: barcode
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
       let imageUrl = formData.image;
@@ -78,36 +81,49 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
         setIsUploading(false);
       }
 
-      const newProduct: Product = {
-        id: formData.productId,
+      // Create product via API
+      const apiProduct = await createProduct({
+        barcode: formData.barcode,
         name: formData.name,
         price: parseFloat(formData.price),
-        deposit: parseFloat(formData.deposit),
-        description: formData.description,
-        stock: formData.stock === "" ? "" : parseInt(formData.stock),
-        image: imageUrl || "/images/place-holder.png",
-      };
-
-      onAddProduct(newProduct);
-
-      // Reset form
-      setFormData({
-        productId: generateRandomId(),
-        name: "",
-        price: "",
-        deposit: "",
-        description: "",
-        stock: "",
-        image: "",
+        image_url: imageUrl || undefined,
+        category: formData.description || undefined,
+        stock_quantity: formData.stock === "" ? undefined : parseInt(formData.stock),
       });
-      setImageFile(null);
-      setImagePreview("");
-      onClose();
+
+      if (apiProduct) {
+        // Convert API product back to old format for the callback
+        const newProduct: Product = {
+          id: apiProduct.id,
+          name: apiProduct.name,
+          price: apiProduct.price,
+          deposit: parseFloat(formData.deposit), // Keep deposit from form since API doesn't have it
+          description: apiProduct.category || "",
+          stock: apiProduct.stock_quantity === 0 ? 0 : apiProduct.stock_quantity || "",
+          image: apiProduct.image_url || "/images/place-holder.png",
+          hidden: !apiProduct.is_active,
+        };
+
+        onAddProduct(newProduct);
+
+        // Reset form
+        setFormData({
+          barcode: generateRandomBarcode(),
+          name: "",
+          price: "",
+          deposit: "",
+          description: "",
+          stock: "",
+          image: "",
+        });
+        setImageFile(null);
+        setImagePreview("");
+        onClose();
+      }
     } catch (error) {
       console.error("Error adding product:", error);
-      alert("Failed to add product. Please try again.");
+      setSubmitError(handleApiError(error));
     } finally {
-      setIsSubmitting(false);
       setIsUploading(false);
     }
   };
@@ -122,7 +138,7 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
-            disabled={isSubmitting}
+            disabled={apiLoading || isUploading}
           >
             <XMarkIcon className="w-6 h-6" />
           </button>
@@ -131,17 +147,17 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Product ID *
+              Barcode *
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
-                name="productId"
-                value={formData.productId}
+                name="barcode"
+                value={formData.barcode}
                 onChange={handleInputChange}
                 required
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Product ID or barcode"
+                placeholder="Product barcode"
               />
               <button
                 type="button"
@@ -153,7 +169,7 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Auto-generated ID or scan barcode to replace
+              Auto-generated barcode or scan to replace
             </p>
           </div>
 
@@ -275,18 +291,27 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
             </div>
           </div>
 
+          {/* Error Display */}
+          {(submitError || apiError) && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">
+                {submitError || apiError}
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={apiLoading || isUploading}
               className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || isUploading}
+              disabled={apiLoading || isUploading}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isUploading ? (
@@ -294,7 +319,7 @@ export default function AddProductModal({ isOpen, onClose, onAddProduct }: AddPr
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Uploading...
                 </>
-              ) : isSubmitting ? (
+              ) : apiLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Adding...
