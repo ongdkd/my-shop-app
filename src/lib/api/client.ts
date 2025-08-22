@@ -309,7 +309,6 @@ export class ApiClient {
         price: 4.99,
         stock_quantity: 50,
         barcode: '1234567890123',
-        description: 'Premium coffee blend',
         image_url: '/images/place-holder.png',
         is_active: true,
         created_at: new Date().toISOString(),
@@ -322,7 +321,6 @@ export class ApiClient {
         price: 8.99,
         stock_quantity: 25,
         barcode: '2345678901234',
-        description: 'Fresh sandwich',
         image_url: '/images/place-holder.png',
         is_active: true,
         created_at: new Date().toISOString(),
@@ -335,7 +333,6 @@ export class ApiClient {
         price: 3.99,
         stock_quantity: 30,
         barcode: '3456789012345',
-        description: 'Delicious pastry',
         image_url: '/images/place-holder.png',
         is_active: true,
         created_at: new Date().toISOString(),
@@ -365,6 +362,7 @@ export class ApiClient {
         hasPrev: false,
       },
       success: true,
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -601,7 +599,7 @@ export class ApiClient {
         terminal_name: terminal.terminal_name,
         location: terminal.location || 'Store',
         configuration: terminal.configuration || {},
-        is_active: terminal.is_active ?? true,
+        is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
