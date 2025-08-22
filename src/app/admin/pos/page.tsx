@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { PlusIcon, PencilIcon, TrashIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  EllipsisVerticalIcon,
+} from "@heroicons/react/24/outline";
 import { usePOSTerminalsQuery, usePOSTerminalMutations } from "@/lib/api";
 import AuthGuard from "@/components/AuthGuard";
 
@@ -14,8 +19,9 @@ interface PosTerminal {
 
 export default function AdminPOSPage() {
   const { data: apiTerminals = [], isLoading, error } = usePOSTerminalsQuery();
-  const { createTerminal, updateTerminal, deleteTerminal } = usePOSTerminalMutations();
-  
+  const { createTerminal, updateTerminal, deleteTerminal } =
+    usePOSTerminalMutations();
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingPos, setEditingPos] = useState<PosTerminal | null>(null);
   const [formData, setFormData] = useState({
@@ -26,24 +32,32 @@ export default function AdminPOSPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Convert API terminals to local format
-  const posTerminals: PosTerminal[] = apiTerminals.map(terminal => ({
+  const posTerminals: PosTerminal[] = apiTerminals.map((terminal) => ({
     id: terminal.id,
     name: terminal.terminal_name,
     themeColor: terminal.configuration?.theme_color || "#3B82F6",
-    isActive: terminal.is_active
+    isActive: terminal.is_active,
   }));
+
+  // Check if we're using fallback data (when API is not available)
+  const isUsingFallback = posTerminals.some(
+    (terminal) => terminal.id === "pos1" && terminal.name === "POS 1"
+  );
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setOpenDropdown(null);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -64,14 +78,46 @@ export default function AdminPOSPage() {
     return (
       <AuthGuard requiredRole="admin">
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-red-600 mb-4">Error loading POS terminals</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              Retry
-            </button>
+          <div className="text-center max-w-md mx-auto px-4">
+            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-8 h-8 text-yellow-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              API Connection Issue
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Unable to connect to the backend API. The application is running
+              with fallback data.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={() => (window.location.href = "/admin")}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Back to Admin
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-4">
+              Note: Changes may not persist until the backend API is available.
+            </p>
           </div>
         </div>
       </AuthGuard>
@@ -89,17 +135,23 @@ export default function AdminPOSPage() {
           theme_color: formData.themeColor,
           theme: "light",
           receipt_printer: true,
-          cash_drawer: true
+          cash_drawer: true,
         },
         is_active: true,
       };
 
-      await createTerminal.mutateAsync(newPOSData);
-      setFormData({ name: "", themeColor: "#3B82F6" });
-      setIsAddModalOpen(false);
+      const result = await createTerminal(newPOSData);
+      if (result) {
+        setFormData({ name: "", themeColor: "#3B82F6" });
+        setIsAddModalOpen(false);
+        // Refresh the page to show the new terminal
+        window.location.reload();
+      } else {
+        alert("Failed to create POS terminal");
+      }
     } catch (error) {
-      console.error('Error creating POS terminal:', error);
-      alert('Failed to create POS terminal');
+      console.error("Error creating POS terminal:", error);
+      alert("Failed to create POS terminal");
     }
   };
 
@@ -128,34 +180,46 @@ export default function AdminPOSPage() {
           theme_color: formData.themeColor,
           theme: "light",
           receipt_printer: true,
-          cash_drawer: true
+          cash_drawer: true,
         },
         is_active: editingPos.isActive,
       };
 
-      await updateTerminal.mutateAsync({ id: editingPos.id, data: updatedData });
-      setEditingPos(null);
-      setFormData({ name: "", themeColor: "#3B82F6" });
-      setIsAddModalOpen(false);
+      const result = await updateTerminal(editingPos.id, updatedData);
+      if (result) {
+        setEditingPos(null);
+        setFormData({ name: "", themeColor: "#3B82F6" });
+        setIsAddModalOpen(false);
+        // Refresh the page to show the updated terminal
+        window.location.reload();
+      } else {
+        alert("Failed to update POS terminal");
+      }
     } catch (error) {
-      console.error('Error updating POS terminal:', error);
-      alert('Failed to update POS terminal');
+      console.error("Error updating POS terminal:", error);
+      alert("Failed to update POS terminal");
     }
   };
 
   const handleDeletePOS = async (posId: string) => {
     if (confirm("Are you sure you want to delete this POS terminal?")) {
       try {
-        await deleteTerminal.mutateAsync(posId);
+        const result = await deleteTerminal(posId);
+        if (result) {
+          // Refresh the page to show the updated list
+          window.location.reload();
+        } else {
+          alert("Failed to delete POS terminal");
+        }
       } catch (error) {
-        console.error('Error deleting POS terminal:', error);
-        alert('Failed to delete POS terminal');
+        console.error("Error deleting POS terminal:", error);
+        alert("Failed to delete POS terminal");
       }
     }
   };
 
   const handleTogglePOS = async (posId: string) => {
-    const currentPos = posTerminals.find(pos => pos.id === posId);
+    const currentPos = posTerminals.find((pos) => pos.id === posId);
     if (!currentPos) return;
 
     try {
@@ -166,25 +230,32 @@ export default function AdminPOSPage() {
           theme_color: currentPos.themeColor,
           theme: "light",
           receipt_printer: true,
-          cash_drawer: true
+          cash_drawer: true,
         },
         is_active: !currentPos.isActive,
       };
 
-      await updateTerminal.mutateAsync({ id: posId, data: updatedData });
-      
-      // Trigger a custom event to notify other components
-      window.dispatchEvent(new CustomEvent('posTerminalUpdated', {
-        detail: { posId, isActive: !currentPos.isActive }
-      }));
+      const result = await updateTerminal(posId, updatedData);
+      if (result) {
+        // Trigger a custom event to notify other components
+        window.dispatchEvent(
+          new CustomEvent("posTerminalUpdated", {
+            detail: { posId, isActive: !currentPos.isActive },
+          })
+        );
+        // Refresh the page to show the updated status
+        window.location.reload();
+      } else {
+        alert("Failed to update POS terminal");
+      }
     } catch (error) {
-      console.error('Error toggling POS terminal:', error);
-      alert('Failed to update POS terminal');
+      console.error("Error toggling POS terminal:", error);
+      alert("Failed to update POS terminal");
     }
   };
 
   const handleColorChange = async (posId: string, newColor: string) => {
-    const currentPos = posTerminals.find(pos => pos.id === posId);
+    const currentPos = posTerminals.find((pos) => pos.id === posId);
     if (!currentPos) return;
 
     try {
@@ -195,20 +266,27 @@ export default function AdminPOSPage() {
           theme_color: newColor,
           theme: "light",
           receipt_printer: true,
-          cash_drawer: true
+          cash_drawer: true,
         },
         is_active: currentPos.isActive,
       };
 
-      await updateTerminal.mutateAsync({ id: posId, data: updatedData });
-      
-      // Trigger a custom event to notify other components
-      window.dispatchEvent(new CustomEvent('posTerminalUpdated', {
-        detail: { posId, themeColor: newColor }
-      }));
+      const result = await updateTerminal(posId, updatedData);
+      if (result) {
+        // Trigger a custom event to notify other components
+        window.dispatchEvent(
+          new CustomEvent("posTerminalUpdated", {
+            detail: { posId, themeColor: newColor },
+          })
+        );
+        // Refresh the page to show the updated color
+        window.location.reload();
+      } else {
+        alert("Failed to update POS terminal color");
+      }
     } catch (error) {
-      console.error('Error updating POS terminal color:', error);
-      alert('Failed to update POS terminal color');
+      console.error("Error updating POS terminal color:", error);
+      alert("Failed to update POS terminal color");
     }
   };
 
@@ -228,12 +306,42 @@ export default function AdminPOSPage() {
                 </p>
               </div>
               <button
-                onClick={() => window.location.href = '/admin'}
+                onClick={() => (window.location.href = "/admin")}
                 className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 active:bg-gray-800 transition-colors touch-manipulation min-h-[44px] text-sm sm:text-base self-start sm:self-auto"
               >
                 Back to Admin
               </button>
             </div>
+
+            {/* Fallback Data Warning */}
+            {isUsingFallback && (
+              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center">
+                  <svg
+                    className="w-5 h-5 text-yellow-600 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">
+                      Running in Demo Mode
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      Backend API is not available. Using sample data. Changes
+                      will not persist.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Add POS Button */}
@@ -257,7 +365,7 @@ export default function AdminPOSPage() {
               <div
                 key={pos.id}
                 className={`bg-white rounded-lg shadow-sm border overflow-hidden ${
-                  !pos.isActive ? 'opacity-75' : ''
+                  !pos.isActive ? "opacity-75" : ""
                 }`}
               >
                 <div
@@ -271,13 +379,19 @@ export default function AdminPOSPage() {
                       <h3 className="text-xl font-semibold text-gray-900">
                         {pos.name}
                       </h3>
-                      <span className="text-sm text-gray-500">ID: {pos.id}</span>
+                      <span className="text-sm text-gray-500">
+                        ID: {pos.id}
+                      </span>
                     </div>
 
                     {/* 3-dot menu */}
                     <div className="relative" ref={dropdownRef}>
                       <button
-                        onClick={() => setOpenDropdown(openDropdown === pos.id ? null : pos.id)}
+                        onClick={() =>
+                          setOpenDropdown(
+                            openDropdown === pos.id ? null : pos.id
+                          )
+                        }
                         className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                       >
                         <EllipsisVerticalIcon className="w-6 h-6" />
@@ -338,20 +452,24 @@ export default function AdminPOSPage() {
                   {/* POS Status Toggle */}
                   <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${pos.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <div
+                        className={`w-3 h-3 rounded-full ${
+                          pos.isActive ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      />
                       <span className="text-sm font-medium text-gray-700">
-                        {pos.isActive ? 'Online' : 'Offline'}
+                        {pos.isActive ? "Online" : "Offline"}
                       </span>
                     </div>
                     <button
                       onClick={() => handleTogglePOS(pos.id)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        pos.isActive ? 'bg-blue-600' : 'bg-gray-300'
+                        pos.isActive ? "bg-blue-600" : "bg-gray-300"
                       }`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          pos.isActive ? 'translate-x-6' : 'translate-x-1'
+                          pos.isActive ? "translate-x-6" : "translate-x-1"
                         }`}
                       />
                     </button>
@@ -359,9 +477,7 @@ export default function AdminPOSPage() {
 
                   <div className="mb-4">
                     <button
-                      onClick={() =>
-                        window.open(`/pos/${pos.id}`, "_blank")
-                      }
+                      onClick={() => window.open(`/pos/${pos.id}`, "_blank")}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
                     >
                       <svg
@@ -404,13 +520,17 @@ export default function AdminPOSPage() {
                 <div className="p-6 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      POS Name {!editingPos && "(Optional - will auto-generate)"}
+                      POS Name{" "}
+                      {!editingPos && "(Optional - will auto-generate)"}
                     </label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, name: e.target.value }))
+                        setFormData((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder={
@@ -421,7 +541,8 @@ export default function AdminPOSPage() {
                     />
                     {!editingPos && (
                       <p className="text-xs text-gray-500 mt-1">
-                        Leave empty to auto-generate "POS {posTerminals.length + 1}"
+                        Leave empty to auto-generate "POS{" "}
+                        {posTerminals.length + 1}"
                       </p>
                     )}
                   </div>

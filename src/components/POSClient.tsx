@@ -6,9 +6,9 @@ import Image from "next/image";
 import ProductCard from "./ProductCard";
 import Sidebar from "./Sidebar";
 import CartPanel from "./CartPanel";
-import RobustBarcodeScanner from "./RobustBarcodeScanner";
+
 import { useEffect, useState } from "react";
-import { ShoppingCartIcon, QrCodeIcon } from "@heroicons/react/24/outline";
+import { ShoppingCartIcon } from "@heroicons/react/24/outline";
 import { useCartStore } from "@/store/cartStore";
 import { apiClient, handleApiError } from "@/lib/api";
 import type { Product } from "@/types";
@@ -24,8 +24,7 @@ export default function POSClient({ products, posId }: POSClientProps) {
   const [showCart, setShowCart] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
-  const [scanError, setScanError] = useState<string | null>(null);
+
 
   const totalItems = getTotalItems();
 
@@ -57,42 +56,7 @@ export default function POSClient({ products, posId }: POSClientProps) {
     await addToCart(product);
   };
 
-  const handleBarcodeScanned = async (barcode: string) => {
-    setScanError(null);
-    
-    try {
-      // Use the database API to find product by barcode
-      const apiProduct = await apiClient.getProductByBarcode(barcode);
-      
-      if (apiProduct) {
-        // Convert API product to legacy format
-        const product: Product = {
-          id: apiProduct.id,
-          name: apiProduct.name,
-          price: apiProduct.price,
-          deposit: apiProduct.price * 0.5, // Default to 50% deposit
-          description: apiProduct.category || "",
-          stock: apiProduct.stock_quantity === 0 ? 0 : apiProduct.stock_quantity || "",
-          image: apiProduct.image_url || "/images/place-holder.png",
-          hidden: !apiProduct.is_active,
-        };
 
-        // Check if product is available in current POS
-        const isAvailable = products.some(p => p.id === product.id);
-        
-        if (isAvailable) {
-          await handleAddToCart(product);
-          setShowBarcodeScanner(false);
-        } else {
-          setScanError("Product not available in this POS terminal");
-        }
-      } else {
-        setScanError("Product not found");
-      }
-    } catch (error) {
-      setScanError(handleApiError(error));
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
@@ -137,15 +101,6 @@ export default function POSClient({ products, posId }: POSClientProps) {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            {/* Barcode Scanner Button */}
-            <button
-              onClick={() => setShowBarcodeScanner(true)}
-              className="bg-gray-600 p-2.5 sm:p-3 rounded-xl shadow-lg hover:bg-gray-700 transition-colors touch-manipulation"
-              title="Scan Barcode"
-            >
-              <QrCodeIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            </button>
-
             {/* Cart Button */}
             <button
               onClick={() => setShowCart(true)}
@@ -267,20 +222,22 @@ export default function POSClient({ products, posId }: POSClientProps) {
           )}
 
           {products.length === 0 && (
-            <div className="text-center py-12 sm:py-20">
-              <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-6 sm:p-12 max-w-sm sm:max-w-md mx-auto">
-                <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                  <svg className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="text-center py-16">
+              <div className="max-w-md mx-auto">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">No Products Available</h3>
-                <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Add some products to get started with your POS terminal</p>
+                <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-3">No Products Available</h3>
+                <p className="text-gray-600 mb-6 text-sm sm:text-base leading-relaxed">
+                  This terminal doesn't have any products configured yet. Please contact your administrator to add products to this POS terminal.
+                </p>
                 <button 
-                  onClick={() => window.open('/admin/pos-products', '_blank')}
-                  className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-lg sm:rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base touch-manipulation"
+                  onClick={() => window.location.href = '/pos'}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base touch-manipulation"
                 >
-                  Add Products
+                  Back to Terminals
                 </button>
               </div>
             </div>
@@ -290,29 +247,7 @@ export default function POSClient({ products, posId }: POSClientProps) {
 
       <CartPanel isOpen={showCart} onClose={() => setShowCart(false)} />
       
-      <RobustBarcodeScanner
-        isOpen={showBarcodeScanner}
-        onClose={() => {
-          setShowBarcodeScanner(false);
-          setScanError(null);
-        }}
-        onScanResult={handleBarcodeScanned}
-      />
 
-      {/* Scan Error Toast */}
-      {scanError && (
-        <div className="fixed top-20 left-4 right-4 z-50 bg-red-500 text-white p-3 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{scanError}</span>
-            <button
-              onClick={() => setScanError(null)}
-              className="ml-2 text-white hover:text-gray-200"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
