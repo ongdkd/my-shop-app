@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { getUserFromToken } from "../services/supabaseClient";
 import { UnauthorizedError, ForbiddenError } from "./errorHandler";
-import { AuthenticatedRequest } from "../types";
+
 
 /**
  * Extract token from Authorization header
@@ -25,7 +25,7 @@ const getUserRole = (user: any): string => {
 };
 
 export const authenticateToken = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -88,7 +88,7 @@ export const authenticateToken = async (
 
 // Optional authentication - doesn't fail if no token provided
 export const optionalAuth = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -131,7 +131,7 @@ const hasPermission = (userRole: string, requiredRoles: string[]): boolean => {
  */
 export const requireRole = (roles: string[]) => {
   return (
-    req: AuthenticatedRequest,
+    req: Request,
     res: Response,
     next: NextFunction
   ): void => {
@@ -185,7 +185,7 @@ export const userRateLimit = (
   const userRequests = new Map<string, { count: number; resetTime: number }>();
 
   return (
-    req: AuthenticatedRequest,
+    req: Request,
     res: Response,
     next: NextFunction
   ): void => {

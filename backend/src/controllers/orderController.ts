@@ -1,7 +1,6 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { OrderService } from '../services/orderService';
 import { 
-  AuthenticatedRequest, 
   SuccessResponse, 
   OrderQueryParams,
   CreateOrderRequest,
@@ -13,7 +12,7 @@ export class OrderController {
    * Get all orders with filtering and pagination
    * GET /api/v1/orders
    */
-  static async getOrders(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const queryParams: OrderQueryParams = {
         page: parseInt(req.query['page'] as string) || 1,
@@ -46,7 +45,7 @@ export class OrderController {
    * Get a single order by ID with all details
    * GET /api/v1/orders/:id
    */
-  static async getOrderById(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getOrderById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const result = await OrderService.getOrderById(id);
@@ -80,7 +79,7 @@ export class OrderController {
    * Create a new order with order items
    * POST /api/v1/orders
    */
-  static async createOrder(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async createOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const orderData: CreateOrderRequest = req.body;
 
@@ -132,7 +131,7 @@ export class OrderController {
    * Get orders by POS terminal
    * GET /api/v1/orders/terminal/:terminalId
    */
-  static async getOrdersByTerminal(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getOrdersByTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { terminalId } = req.params;
       const queryParams: OrderQueryParams = {
@@ -165,7 +164,7 @@ export class OrderController {
    * Get orders by date range
    * GET /api/v1/orders/date-range
    */
-  static async getOrdersByDateRange(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getOrdersByDateRange(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const startDate = req.query['start_date'] as string;
       const endDate = req.query['end_date'] as string;
@@ -211,7 +210,7 @@ export class OrderController {
    * Get sales summary for reporting
    * GET /api/v1/orders/reports/summary
    */
-  static async getSalesSummary(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getSalesSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const startDate = req.query['start_date'] as string;
       const endDate = req.query['end_date'] as string;

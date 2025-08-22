@@ -1,7 +1,6 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { POSTerminalService } from '../services/posTerminalService';
 import { 
-  AuthenticatedRequest, 
   SuccessResponse, 
   CreatePOSTerminalRequest,
   UpdatePOSTerminalRequest,
@@ -13,7 +12,7 @@ export class POSTerminalController {
    * Get all POS terminals
    * GET /api/v1/pos-terminals
    */
-  static async getAllTerminals(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getAllTerminals(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const activeOnly = req.query['active'] === 'true';
       
@@ -46,7 +45,7 @@ export class POSTerminalController {
    * Get a single POS terminal by ID
    * GET /api/v1/pos-terminals/:id
    */
-  static async getTerminalById(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getTerminalById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const result = await POSTerminalService.getTerminalById(id);
@@ -80,7 +79,7 @@ export class POSTerminalController {
    * Create a new POS terminal
    * POST /api/v1/pos-terminals
    */
-  static async createTerminal(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async createTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const terminalData: CreatePOSTerminalRequest = req.body;
       const result = await POSTerminalService.createTerminal(terminalData);
@@ -110,7 +109,7 @@ export class POSTerminalController {
    * Update a POS terminal
    * PUT /api/v1/pos-terminals/:id
    */
-  static async updateTerminal(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async updateTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const terminalData: UpdatePOSTerminalRequest = req.body;
@@ -146,7 +145,7 @@ export class POSTerminalController {
    * Delete a POS terminal (soft delete)
    * DELETE /api/v1/pos-terminals/:id
    */
-  static async deleteTerminal(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async deleteTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const result = await POSTerminalService.deleteTerminal(id);
@@ -171,7 +170,7 @@ export class POSTerminalController {
    * Get terminal configuration
    * GET /api/v1/pos-terminals/:id/configuration
    */
-  static async getTerminalConfiguration(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getTerminalConfiguration(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const result = await POSTerminalService.getTerminalConfiguration(id);
@@ -205,7 +204,7 @@ export class POSTerminalController {
    * Update terminal configuration
    * PUT /api/v1/pos-terminals/:id/configuration
    */
-  static async updateTerminalConfiguration(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async updateTerminalConfiguration(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const configuration = req.body;
@@ -254,7 +253,7 @@ export class POSTerminalController {
    * Get terminal statistics
    * GET /api/v1/pos-terminals/:id/stats
    */
-  static async getTerminalStats(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async getTerminalStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const days = parseInt(req.query['days'] as string) || 30;

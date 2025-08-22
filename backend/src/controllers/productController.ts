@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ProductService } from '../services/productService';
 import { 
-  AuthenticatedRequest, 
   SuccessResponse, 
   ProductQueryParams,
   CreateProductRequest,
@@ -113,7 +112,7 @@ export class ProductController {
    * Create a new product
    * POST /api/v1/products
    */
-  static async createProduct(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async createProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const productData: CreateProductRequest = req.body;
       const result = await ProductService.createProduct(productData);
@@ -147,7 +146,7 @@ export class ProductController {
    * Update a product
    * PUT /api/v1/products/:id
    */
-  static async updateProduct(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async updateProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const productData: UpdateProductRequest = req.body;
@@ -187,7 +186,7 @@ export class ProductController {
    * Delete a product (soft delete)
    * DELETE /api/v1/products/:id
    */
-  static async deleteProduct(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async deleteProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
       const result = await ProductService.deleteProduct(id);
@@ -241,7 +240,7 @@ export class ProductController {
    * Bulk update product stock
    * PATCH /api/v1/products/bulk/stock
    */
-  static async bulkUpdateStock(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  static async bulkUpdateStock(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const updates: Array<{ id: string; stock_quantity: number }> = req.body.updates;
 

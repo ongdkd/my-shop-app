@@ -10,9 +10,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
     "removeComments": true,
     "noImplicitAny": false,
     "noImplicitReturns": true,
@@ -20,16 +20,18 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
+    "noPropertyAccessFromIndexSignature": false,
     "noUncheckedIndexedAccess": false,
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "baseUrl": "./src"
+    "baseUrl": "./src",
+    "moduleResolution": "node"
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "src/types/express.d.ts"
   ],
   "exclude": [
     "node_modules",
