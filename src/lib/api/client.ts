@@ -103,6 +103,47 @@ export class ApiClient {
     try {
       const response = await fetch(url, config);
       
+      // Handle authentication errors with automatic token refresh
+      if (response.status === 401) {
+        console.log('Authentication failed, attempting token refresh...');
+        const refreshSuccess = await this.refreshAuth();
+        
+        if (refreshSuccess) {
+          // Retry the request with the new token
+          headers.Authorization = `Bearer ${this.authToken}`;
+          const retryConfig: RequestInit = {
+            ...options,
+            headers,
+          };
+          
+          const retryResponse = await fetch(url, retryConfig);
+          
+          if (retryResponse.status === 204) {
+            return {} as T;
+          }
+          
+          const retryData = await retryResponse.json();
+          
+          if (!retryResponse.ok) {
+            throw new ApiError(
+              retryData.error?.code || 'API_ERROR',
+              retryData.error?.message || 'An error occurred',
+              retryResponse.status,
+              retryData.error?.details
+            );
+          }
+          
+          return retryData;
+        } else {
+          // Token refresh failed, throw authentication error
+          throw new ApiError(
+            'AUTHENTICATION_FAILED',
+            'Authentication failed and token refresh was unsuccessful',
+            401
+          );
+        }
+      }
+      
       // Handle different response types
       if (response.status === 204) {
         return {} as T; // No content
@@ -122,10 +163,25 @@ export class ApiClient {
       return data;
     } catch (error) {
       if (error instanceof ApiError) {
+        // Log authentication-related errors for debugging
+        if (error.status === 401 || error.code === 'AUTHENTICATION_FAILED') {
+          console.error('Authentication error in API request:', {
+            endpoint,
+            error: error.message,
+            hasToken: !!this.authToken,
+            timestamp: new Date().toISOString(),
+          });
+        }
         throw error;
       }
 
       // Network or other errors
+      console.error('Network error in API request:', {
+        endpoint,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+      });
+      
       throw new ApiError(
         'NETWORK_ERROR',
         error instanceof Error ? error.message : 'Network error occurred'
@@ -139,7 +195,21 @@ export class ApiClient {
     try {
       const session = await authHelpers.getSession();
       if (session?.access_token) {
-        this.authToken = session.access_token;
+        // Check if token is about to expire (within 5 minutes)
+        const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
+        const now = new Date();
+        const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+        
+        if (expiresAt && expiresAt < fiveMinutesFromNow) {
+          console.log('Token expires soon, refreshing...');
+          const refreshSuccess = await this.refreshAuth();
+          if (!refreshSuccess) {
+            console.warn('Token refresh failed, clearing token');
+            this.authToken = undefined;
+          }
+        } else {
+          this.authToken = session.access_token;
+        }
       } else {
         this.authToken = undefined;
       }
@@ -536,71 +606,18 @@ export class ApiClient {
   // =============================================
 
   async getPOSTerminals(activeOnly?: boolean): Promise<POSTerminal[]> {
-    try {
-      const response = await this.get<ApiResponse<POSTerminal[]>>('/api/v1/pos-terminals', 
-        activeOnly ? { active: 'true' } : undefined
-      );
-      
-      if (response.success && response.data) {
-        return response.data;
-      }
-      
-      return [];
-    } catch (error) {
-      // Fallback to mock data when API is not available
-      console.warn('API not available, using fallback POS terminals data');
-      return this.getFallbackPOSTerminals(activeOnly);
+    const response = await this.get<ApiResponse<POSTerminal[]>>('/api/v1/pos-terminals', 
+      activeOnly ? { active: 'true' } : undefined
+    );
+    
+    if (response.success && response.data) {
+      return response.data;
     }
+    
+    return [];
   }
 
-  private getFallbackPOSTerminals(activeOnly?: boolean): POSTerminal[] {
-    const fallbackTerminals: POSTerminal[] = [
-      {
-        id: 'pos1',
-        terminal_name: 'POS 1',
-        location: 'Store',
-        configuration: {
-          theme_color: '#3B82F6',
-          theme: 'light',
-          receipt_printer: true,
-          cash_drawer: true,
-        },
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: 'pos2',
-        terminal_name: 'POS 2',
-        location: 'Store',
-        configuration: {
-          theme_color: '#10B981',
-          theme: 'light',
-          receipt_printer: true,
-          cash_drawer: true,
-        },
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: 'pos3',
-        terminal_name: 'POS 3',
-        location: 'Store',
-        configuration: {
-          theme_color: '#F59E0B',
-          theme: 'light',
-          receipt_printer: true,
-          cash_drawer: false,
-        },
-        is_active: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
 
-    return activeOnly ? fallbackTerminals.filter(t => t.is_active) : fallbackTerminals;
-  }
 
   async getPOSTerminalById(id: string): Promise<POSTerminal> {
     const response = await this.get<ApiResponse<POSTerminal>>(`/api/v1/pos-terminals/${id}`);
@@ -613,61 +630,27 @@ export class ApiClient {
   }
 
   async createPOSTerminal(terminal: CreatePOSTerminalRequest): Promise<POSTerminal> {
-    try {
-      const response = await this.post<ApiResponse<POSTerminal>>('/api/v1/pos-terminals', terminal);
-      
-      if (response.success && response.data) {
-        return response.data;
-      }
-      
-      throw new ApiError('CREATE_TERMINAL_FAILED', 'Failed to create POS terminal');
-    } catch (error) {
-      // Fallback: simulate successful creation
-      console.warn('API not available, simulating POS terminal creation');
-      return {
-        id: `pos${Date.now()}`,
-        terminal_name: terminal.terminal_name,
-        location: terminal.location || 'Store',
-        configuration: terminal.configuration || {},
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+    const response = await this.post<ApiResponse<POSTerminal>>('/api/v1/pos-terminals', terminal);
+    
+    if (response.success && response.data) {
+      return response.data;
     }
+    
+    throw new ApiError('CREATE_TERMINAL_FAILED', 'Failed to create POS terminal');
   }
 
   async updatePOSTerminal(id: string, terminal: UpdatePOSTerminalRequest): Promise<POSTerminal> {
-    try {
-      const response = await this.put<ApiResponse<POSTerminal>>(`/api/v1/pos-terminals/${id}`, terminal);
-      
-      if (response.success && response.data) {
-        return response.data;
-      }
-      
-      throw new ApiError('UPDATE_TERMINAL_FAILED', 'Failed to update POS terminal');
-    } catch (error) {
-      // Fallback: simulate successful update
-      console.warn('API not available, simulating POS terminal update');
-      return {
-        id,
-        terminal_name: terminal.terminal_name || `POS ${id}`,
-        location: terminal.location || 'Store',
-        configuration: terminal.configuration || {},
-        is_active: terminal.is_active ?? true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+    const response = await this.put<ApiResponse<POSTerminal>>(`/api/v1/pos-terminals/${id}`, terminal);
+    
+    if (response.success && response.data) {
+      return response.data;
     }
+    
+    throw new ApiError('UPDATE_TERMINAL_FAILED', 'Failed to update POS terminal');
   }
 
   async deletePOSTerminal(id: string): Promise<void> {
-    try {
-      await this.delete(`/api/v1/pos-terminals/${id}`);
-    } catch (error) {
-      // Fallback: simulate successful deletion
-      console.warn('API not available, simulating POS terminal deletion');
-      // Just return without error
-    }
+    await this.delete(`/api/v1/pos-terminals/${id}`);
   }
 
   async getPOSTerminalConfiguration(id: string): Promise<Record<string, any>> {

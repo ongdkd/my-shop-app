@@ -9,6 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { usePOSTerminalsQuery, usePOSTerminalMutations } from "@/lib/api";
 import AuthGuard from "@/components/AuthGuard";
+import ConnectionStatus from "@/components/ConnectionStatus";
 
 interface PosTerminal {
   id: string;
@@ -18,7 +19,7 @@ interface PosTerminal {
 }
 
 export default function AdminPOSPage() {
-  const { data: apiTerminals = [], isLoading, error } = usePOSTerminalsQuery();
+  const { data: apiTerminals = [], isLoading, error, refetch } = usePOSTerminalsQuery();
   const { createTerminal, updateTerminal, deleteTerminal } =
     usePOSTerminalMutations();
 
@@ -39,10 +40,7 @@ export default function AdminPOSPage() {
     isActive: terminal.is_active,
   }));
 
-  // Check if we're using fallback data (when API is not available)
-  const isUsingFallback = posTerminals.some(
-    (terminal) => terminal.id === "pos1" && terminal.name === "POS 1"
-  );
+  // No longer check for fallback data - API client will throw errors instead
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -79,9 +77,9 @@ export default function AdminPOSPage() {
       <AuthGuard requiredRole="admin">
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center max-w-md mx-auto px-4">
-            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
-                className="w-8 h-8 text-yellow-600"
+                className="w-8 h-8 text-red-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -95,18 +93,21 @@ export default function AdminPOSPage() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              API Connection Issue
+              Connection Error
             </h3>
             <p className="text-gray-600 mb-6">
-              Unable to connect to the backend API. The application is running
-              with fallback data.
+              Unable to connect to the backend API. Please check your connection and try again.
             </p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm text-gray-700 font-medium mb-2">Error Details:</p>
+              <p className="text-sm text-gray-600 font-mono">{error}</p>
+            </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
               >
-                Try Again
+                Retry Connection
               </button>
               <button
                 onClick={() => (window.location.href = "/admin")}
@@ -115,9 +116,14 @@ export default function AdminPOSPage() {
                 Back to Admin
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-4">
-              Note: Changes may not persist until the backend API is available.
-            </p>
+            <div className="mt-6 text-left">
+              <p className="text-sm font-medium text-gray-700 mb-2">Troubleshooting:</p>
+              <ul className="text-xs text-gray-600 space-y-1">
+                <li>• Check your internet connection</li>
+                <li>• Verify the backend server is running</li>
+                <li>• Contact your system administrator if the problem persists</li>
+              </ul>
+            </div>
           </div>
         </div>
       </AuthGuard>
@@ -144,8 +150,8 @@ export default function AdminPOSPage() {
       if (result) {
         setFormData({ name: "", themeColor: "#3B82F6" });
         setIsAddModalOpen(false);
-        // Refresh the page to show the new terminal
-        window.location.reload();
+        // Refetch data to show the new terminal
+        await refetch();
       } else {
         alert("Failed to create POS terminal");
       }
@@ -190,8 +196,8 @@ export default function AdminPOSPage() {
         setEditingPos(null);
         setFormData({ name: "", themeColor: "#3B82F6" });
         setIsAddModalOpen(false);
-        // Refresh the page to show the updated terminal
-        window.location.reload();
+        // Refetch data to show the updated terminal
+        await refetch();
       } else {
         alert("Failed to update POS terminal");
       }
@@ -206,8 +212,8 @@ export default function AdminPOSPage() {
       try {
         const result = await deleteTerminal(posId);
         if (result) {
-          // Refresh the page to show the updated list
-          window.location.reload();
+          // Refetch data to show the updated list
+          await refetch();
         } else {
           alert("Failed to delete POS terminal");
         }
@@ -243,8 +249,8 @@ export default function AdminPOSPage() {
             detail: { posId, isActive: !currentPos.isActive },
           })
         );
-        // Refresh the page to show the updated status
-        window.location.reload();
+        // Refetch data to show the updated status
+        await refetch();
       } else {
         alert("Failed to update POS terminal");
       }
@@ -279,8 +285,8 @@ export default function AdminPOSPage() {
             detail: { posId, themeColor: newColor },
           })
         );
-        // Refresh the page to show the updated color
-        window.location.reload();
+        // Refetch data to show the updated color
+        await refetch();
       } else {
         alert("Failed to update POS terminal color");
       }
@@ -305,20 +311,23 @@ export default function AdminPOSPage() {
                   Manage your POS terminals and customize their themes
                 </p>
               </div>
-              <button
-                onClick={() => (window.location.href = "/admin")}
-                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 active:bg-gray-800 transition-colors touch-manipulation min-h-[44px] text-sm sm:text-base self-start sm:self-auto"
-              >
-                Back to Admin
-              </button>
+              <div className="flex items-center gap-3">
+                <ConnectionStatus showDetails={false} />
+                <button
+                  onClick={() => (window.location.href = "/admin")}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 active:bg-gray-800 transition-colors touch-manipulation min-h-[44px] text-sm sm:text-base"
+                >
+                  Back to Admin
+                </button>
+              </div>
             </div>
 
-            {/* Fallback Data Warning */}
-            {isUsingFallback && (
-              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-center">
+            {/* Empty State for No Terminals */}
+            {posTerminals.length === 0 && (
+              <div className="mt-4 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-center">
                   <svg
-                    className="w-5 h-5 text-yellow-600 mr-2"
+                    className="w-12 h-12 text-blue-400 mx-auto mb-4"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -327,18 +336,26 @@ export default function AdminPOSPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
                     />
                   </svg>
-                  <div>
-                    <p className="text-sm font-medium text-yellow-800">
-                      Running in Demo Mode
-                    </p>
-                    <p className="text-sm text-yellow-700">
-                      Backend API is not available. Using sample data. Changes
-                      will not persist.
-                    </p>
-                  </div>
+                  <h3 className="text-lg font-medium text-blue-900 mb-2">
+                    No POS Terminals Found
+                  </h3>
+                  <p className="text-blue-700 mb-4">
+                    You haven't created any POS terminals yet. Create your first terminal to get started.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setEditingPos(null);
+                      setFormData({ name: "", themeColor: "#3B82F6" });
+                      setIsAddModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    <PlusIcon className="w-5 h-5" />
+                    Create First Terminal
+                  </button>
                 </div>
               </div>
             )}
@@ -360,8 +377,9 @@ export default function AdminPOSPage() {
           </div>
 
           {/* POS Terminals Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {posTerminals.map((pos) => (
+          {posTerminals.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {posTerminals.map((pos) => (
               <div
                 key={pos.id}
                 className={`bg-white rounded-lg shadow-sm border overflow-hidden ${
@@ -498,8 +516,9 @@ export default function AdminPOSPage() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* Add/Edit Modal */}
           {isAddModalOpen && (
