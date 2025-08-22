@@ -28,9 +28,20 @@ export class ApiClient {
   constructor(baseURL?: string) {
     this.baseURL = baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     
-    // Load token from localStorage if available
+    // Initialize auth token from Supabase session
+    this.initializeAuthToken();
+  }
+
+  private async initializeAuthToken(): Promise<void> {
     if (typeof window !== 'undefined') {
-      this.authToken = localStorage.getItem('auth_token') || undefined;
+      try {
+        const session = await authHelpers.getSession();
+        if (session?.access_token) {
+          this.authToken = session.access_token;
+        }
+      } catch (error) {
+        console.warn('Failed to initialize auth token:', error);
+      }
     }
   }
 
@@ -70,6 +81,9 @@ export class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
+    
+    // Ensure we have the latest auth token
+    await this.ensureValidToken();
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -116,6 +130,22 @@ export class ApiClient {
         'NETWORK_ERROR',
         error instanceof Error ? error.message : 'Network error occurred'
       );
+    }
+  }
+
+  private async ensureValidToken(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const session = await authHelpers.getSession();
+      if (session?.access_token) {
+        this.authToken = session.access_token;
+      } else {
+        this.authToken = undefined;
+      }
+    } catch (error) {
+      console.warn('Failed to get current session:', error);
+      this.authToken = undefined;
     }
   }
 
@@ -691,5 +721,15 @@ export const apiClient = new ApiClient();
 
 // Initialize authentication on app start
 if (typeof window !== 'undefined') {
+  // Listen for Supabase auth changes and update API client token
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (session?.access_token) {
+      apiClient.setAuthToken(session.access_token);
+    } else {
+      apiClient.clearAuthToken();
+    }
+  });
+  
+  // Initialize with current session
   apiClient.initializeAuth().catch(console.warn);
 }
