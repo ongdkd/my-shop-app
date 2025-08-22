@@ -417,7 +417,7 @@ export class ProductService {
       }
 
       // Extract unique categories
-      const categories = [...new Set(data.map(item => item.category).filter(Boolean))];
+      const categories = Array.from(new Set(data.map(item => item.category).filter(Boolean)));
 
       return {
         success: true,

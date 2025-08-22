@@ -8,6 +8,7 @@ export * from './database';
 import { Request } from 'express';
 import { User } from '@supabase/supabase-js';
 
+// Extend Express Request to include authentication data
 export interface AuthenticatedRequest extends Request {
   user?: User;
   token?: string;
