@@ -3,7 +3,6 @@ import {
   CreateProductRequest,
   UpdateProductRequest,
   ProductQueryParams,
-  Order,
   OrderWithItems,
   CreateOrderRequest,
   OrderQueryParams,
@@ -24,7 +23,6 @@ import {
   LOGIN_VALIDATION_SCHEMA,
 } from "../validation";
 import { supabase, authHelpers } from "../supabase";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export class ApiClient {
   private baseURL: string;
@@ -35,21 +33,8 @@ export class ApiClient {
       baseURL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
     // Load token from localStorage if available
-    if (typeof window !== 'undefined') {
-      this.authToken = localStorage.getItem('auth_token') || undefined;
-    }
-  }
-
-  private async initializeAuthToken(): Promise<void> {
     if (typeof window !== "undefined") {
-      try {
-        const session = await authHelpers.getSession();
-        if (session?.access_token) {
-          this.authToken = session.access_token;
-        }
-      } catch (error) {
-        console.warn("Failed to initialize auth token:", error);
-      }
+      this.authToken = localStorage.getItem("auth_token") || undefined;
     }
   }
 
@@ -237,17 +222,22 @@ export class ApiClient {
     endpoint: string,
     params?: Record<string, any>
   ): Promise<T> {
-    const url = new URL(`${this.baseURL}${endpoint}`);
+    let finalEndpoint = endpoint;
 
     if (params) {
+      const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          url.searchParams.append(key, String(value));
+          searchParams.append(key, String(value));
         }
       });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        finalEndpoint += `?${queryString}`;
+      }
     }
 
-    return this.request<T>(url.pathname + url.search);
+    return this.request<T>(finalEndpoint);
   }
 
   private async post<T>(endpoint: string, data?: any): Promise<T> {
@@ -838,7 +828,7 @@ export const apiClient = new ApiClient();
 // Initialize authentication on app start
 if (typeof window !== "undefined") {
   // Listen for Supabase auth changes and update API client token
-  supabase.auth.onAuthStateChange((event, session) => {
+  supabase.auth.onAuthStateChange((_event, session) => {
     if (session?.access_token) {
       apiClient.setAuthToken(session.access_token);
     } else {

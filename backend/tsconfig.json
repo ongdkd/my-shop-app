@@ -29,9 +29,16 @@
     "baseUrl": "./src",
     "moduleResolution": "node"
   },
+  "ts-node": {
+    "files": true,
+    "transpileOnly": false
+  },
   "include": [
-    "src/**/*",
-    "src/types/express.d.ts"
+    "src/**/*"
+  ],
+  "typeRoots": [
+    "node_modules/@types",
+    "src/types"
   ],
   "exclude": [
     "node_modules",

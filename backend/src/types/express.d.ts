@@ -1,4 +1,4 @@
-// Express type extensions for better cloud deployment compatibility
+// Express Request interface extension
 import { User } from '@supabase/supabase-js';
 
 declare global {
