@@ -19,7 +19,12 @@ interface PosTerminal {
 }
 
 export default function AdminPOSPage() {
-  const { data: apiTerminals = [], isLoading, error, refetch } = usePOSTerminalsQuery();
+  const {
+    data: apiTerminals = [],
+    isLoading,
+    error,
+    refetch,
+  } = usePOSTerminalsQuery();
   const { createTerminal, updateTerminal, deleteTerminal } =
     usePOSTerminalMutations();
 
@@ -96,11 +101,16 @@ export default function AdminPOSPage() {
               Connection Error
             </h3>
             <p className="text-gray-600 mb-6">
-              Unable to connect to the backend API. Please check your connection and try again.
+              Unable to connect to the backend API. Please check your connection
+              and try again.
             </p>
             <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
-              <p className="text-sm text-gray-700 font-medium mb-2">Error Details:</p>
-              <p className="text-sm text-gray-600 font-mono">{error}</p>
+              <p className="text-sm text-gray-700 font-medium mb-2">
+                Error Details:
+              </p>
+              <p className="text-sm text-gray-600 font-mono">
+                {error instanceof Error ? error.message : String(error)}
+              </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
@@ -117,11 +127,15 @@ export default function AdminPOSPage() {
               </button>
             </div>
             <div className="mt-6 text-left">
-              <p className="text-sm font-medium text-gray-700 mb-2">Troubleshooting:</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Troubleshooting:
+              </p>
               <ul className="text-xs text-gray-600 space-y-1">
                 <li>• Check your internet connection</li>
                 <li>• Verify the backend server is running</li>
-                <li>• Contact your system administrator if the problem persists</li>
+                <li>
+                  • Contact your system administrator if the problem persists
+                </li>
               </ul>
             </div>
           </div>
@@ -343,7 +357,8 @@ export default function AdminPOSPage() {
                     No POS Terminals Found
                   </h3>
                   <p className="text-blue-700 mb-4">
-                    You haven't created any POS terminals yet. Create your first terminal to get started.
+                    You haven't created any POS terminals yet. Create your first
+                    terminal to get started.
                   </p>
                   <button
                     onClick={() => {
@@ -380,142 +395,142 @@ export default function AdminPOSPage() {
           {posTerminals.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {posTerminals.map((pos) => (
-              <div
-                key={pos.id}
-                className={`bg-white rounded-lg shadow-sm border overflow-hidden ${
-                  !pos.isActive ? "opacity-75" : ""
-                }`}
-              >
                 <div
-                  className="h-4"
-                  style={{ backgroundColor: pos.themeColor }}
-                />
+                  key={pos.id}
+                  className={`bg-white rounded-lg shadow-sm border overflow-hidden ${
+                    !pos.isActive ? "opacity-75" : ""
+                  }`}
+                >
+                  <div
+                    className="h-4"
+                    style={{ backgroundColor: pos.themeColor }}
+                  />
 
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900">
-                        {pos.name}
-                      </h3>
-                      <span className="text-sm text-gray-500">
-                        ID: {pos.id}
-                      </span>
-                    </div>
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900">
+                          {pos.name}
+                        </h3>
+                        <span className="text-sm text-gray-500">
+                          ID: {pos.id}
+                        </span>
+                      </div>
 
-                    {/* 3-dot menu */}
-                    <div className="relative" ref={dropdownRef}>
-                      <button
-                        onClick={() =>
-                          setOpenDropdown(
-                            openDropdown === pos.id ? null : pos.id
-                          )
-                        }
-                        className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                      >
-                        <EllipsisVerticalIcon className="w-6 h-6" />
-                      </button>
+                      {/* 3-dot menu */}
+                      <div className="relative" ref={dropdownRef}>
+                        <button
+                          onClick={() =>
+                            setOpenDropdown(
+                              openDropdown === pos.id ? null : pos.id
+                            )
+                          }
+                          className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                        >
+                          <EllipsisVerticalIcon className="w-6 h-6" />
+                        </button>
 
-                      {openDropdown === pos.id && (
-                        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-10">
-                          <button
-                            onClick={() => {
-                              handleEditPOS(pos);
-                              setOpenDropdown(null);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                            Edit POS
-                          </button>
+                        {openDropdown === pos.id && (
+                          <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-10">
+                            <button
+                              onClick={() => {
+                                handleEditPOS(pos);
+                                setOpenDropdown(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                              Edit POS
+                            </button>
 
-                          <div className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                <div
-                                  className="w-4 h-4 rounded border border-gray-300"
-                                  style={{ backgroundColor: pos.themeColor }}
+                            <div className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                              <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                  <div
+                                    className="w-4 h-4 rounded border border-gray-300"
+                                    style={{ backgroundColor: pos.themeColor }}
+                                  />
+                                  Theme Color
+                                </span>
+                                <input
+                                  type="color"
+                                  value={pos.themeColor}
+                                  onChange={(e) => {
+                                    const newColor = e.target.value;
+                                    handleColorChange(pos.id, newColor);
+                                  }}
+                                  className="w-6 h-6 rounded border-0 cursor-pointer"
+                                  onClick={(e) => e.stopPropagation()}
                                 />
-                                Theme Color
-                              </span>
-                              <input
-                                type="color"
-                                value={pos.themeColor}
-                                onChange={(e) => {
-                                  const newColor = e.target.value;
-                                  handleColorChange(pos.id, newColor);
-                                }}
-                                className="w-6 h-6 rounded border-0 cursor-pointer"
-                                onClick={(e) => e.stopPropagation()}
-                              />
+                              </div>
                             </div>
+
+                            <hr className="my-1" />
+
+                            <button
+                              onClick={() => {
+                                handleDeletePOS(pos.id);
+                                setOpenDropdown(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                              Delete POS
+                            </button>
                           </div>
-
-                          <hr className="my-1" />
-
-                          <button
-                            onClick={() => {
-                              handleDeletePOS(pos.id);
-                              setOpenDropdown(null);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                            Delete POS
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* POS Status Toggle */}
-                  <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-3 h-3 rounded-full ${
-                          pos.isActive ? "bg-green-500" : "bg-red-500"
-                        }`}
-                      />
-                      <span className="text-sm font-medium text-gray-700">
-                        {pos.isActive ? "Online" : "Offline"}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleTogglePOS(pos.id)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        pos.isActive ? "bg-blue-600" : "bg-gray-300"
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          pos.isActive ? "translate-x-6" : "translate-x-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  <div className="mb-4">
-                    <button
-                      onClick={() => window.open(`/pos/${pos.id}`, "_blank")}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                    {/* POS Status Toggle */}
+                    <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-3 h-3 rounded-full ${
+                            pos.isActive ? "bg-green-500" : "bg-red-500"
+                          }`}
                         />
-                      </svg>
-                      Open POS Terminal
-                    </button>
+                        <span className="text-sm font-medium text-gray-700">
+                          {pos.isActive ? "Online" : "Offline"}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleTogglePOS(pos.id)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                          pos.isActive ? "bg-blue-600" : "bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            pos.isActive ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="mb-4">
+                      <button
+                        onClick={() => window.open(`/pos/${pos.id}`, "_blank")}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                          />
+                        </svg>
+                        Open POS Terminal
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
               ))}
             </div>
           )}

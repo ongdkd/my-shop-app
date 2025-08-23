@@ -182,6 +182,7 @@ export interface PaginatedResponse<T> {
 // =============================================
 
 export class ApiError extends Error {
+  public status: number;
   constructor(
     public code: string,
     message: string,
@@ -190,6 +191,7 @@ export class ApiError extends Error {
   ) {
     super(message);
     this.name = 'ApiError';
+    this.status = statusCode || 0;
   }
 }
 
