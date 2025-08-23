@@ -34,8 +34,10 @@ export class ApiClient {
     this.baseURL =
       baseURL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-    // Initialize auth token from Supabase session
-    this.initializeAuthToken();
+    // Load token from localStorage if available
+    if (typeof window !== 'undefined') {
+      this.authToken = localStorage.getItem('auth_token') || undefined;
+    }
   }
 
   private async initializeAuthToken(): Promise<void> {
@@ -76,6 +78,10 @@ export class ApiClient {
 
   isAuthenticated(): boolean {
     return !!this.authToken;
+  }
+
+  getBaseURL(): string {
+    return this.baseURL;
   }
 
   // =============================================

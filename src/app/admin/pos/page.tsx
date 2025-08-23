@@ -10,6 +10,7 @@ import {
 import { usePOSTerminalsQuery, usePOSTerminalMutations } from "@/lib/api";
 import AuthGuard from "@/components/AuthGuard";
 import ConnectionStatus from "@/components/ConnectionStatus";
+import AuthDebug from "@/components/AuthDebug";
 
 interface PosTerminal {
   id: string;
@@ -335,6 +336,9 @@ export default function AdminPOSPage() {
                 </button>
               </div>
             </div>
+
+            {/* Auth Debug - Temporary */}
+            <AuthDebug />
 
             {/* Empty State for No Terminals */}
             {posTerminals.length === 0 && (

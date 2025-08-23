@@ -146,7 +146,7 @@ export class ConnectionStatusManager {
 
       // Try detailed health check for more information
       try {
-        const response = await fetch(`${apiClient['baseURL']}/health/detailed`);
+        const response = await fetch(`${apiClient.getBaseURL()}/health/detailed`);
         if (response.ok) {
           const healthData = await response.json();
           return healthData.success && healthData.data.status !== 'unhealthy';
@@ -321,7 +321,7 @@ export class ConnectionStatusManager {
    */
   async getDetailedHealth(): Promise<DetailedHealthResponse | null> {
     try {
-      const response = await fetch(`${apiClient['baseURL']}/health/detailed`);
+      const response = await fetch(`${apiClient.getBaseURL()}/health/detailed`);
       if (response.ok) {
         const data = await response.json();
         return data.success ? data.data : null;
@@ -338,7 +338,7 @@ export class ConnectionStatusManager {
    */
   async testServiceHealth(service: 'database' | 'auth'): Promise<boolean> {
     try {
-      const response = await fetch(`${apiClient['baseURL']}/health/${service}`);
+      const response = await fetch(`${apiClient.getBaseURL()}/health/${service}`);
       if (response.ok) {
         const data = await response.json();
         return data.success;
