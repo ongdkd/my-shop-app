@@ -4,6 +4,8 @@ import "./globals.css";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ToastProvider } from "@/components/ToastNotification";
+import NotificationIntegration from "@/components/NotificationIntegration";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,9 +24,12 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <QueryProvider>
-            <ErrorBoundary>
-              {children}
-            </ErrorBoundary>
+            <ToastProvider>
+              <NotificationIntegration />
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </ToastProvider>
           </QueryProvider>
         </AuthProvider>
       </body>

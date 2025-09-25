@@ -297,4 +297,172 @@ export class POSTerminalController {
       next(error);
     }
   }
+
+  /**
+   * Get products assigned to a terminal
+   * GET /api/v1/pos-terminals/:id/products
+   */
+  static async getTerminalProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const result = await POSTerminalService.getTerminalProducts(id);
+
+      if (!result.success) {
+        const statusCode = result.error?.code === 'TERMINAL_NOT_FOUND' 
+          ? HttpStatusCode.NOT_FOUND 
+          : HttpStatusCode.INTERNAL_SERVER_ERROR;
+
+        res.status(statusCode).json({
+          success: false,
+          error: result.error,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const response: SuccessResponse = {
+        success: true,
+        data: result.data,
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(HttpStatusCode.OK).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Assign products to a terminal (bulk operation)
+   * POST /api/v1/pos-terminals/:id/products
+   */
+  static async assignProductsToTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { productIds } = req.body;
+
+      // Validate request body
+      if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        res.status(HttpStatusCode.BAD_REQUEST).json({
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST_BODY',
+            message: 'productIds must be a non-empty array of product IDs',
+          },
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // Validate that all productIds are strings (UUIDs)
+      const invalidIds = productIds.filter(id => typeof id !== 'string' || !id.trim());
+      if (invalidIds.length > 0) {
+        res.status(HttpStatusCode.BAD_REQUEST).json({
+          success: false,
+          error: {
+            code: 'INVALID_PRODUCT_IDS',
+            message: 'All product IDs must be valid strings',
+          },
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const result = await POSTerminalService.assignProductsToTerminal(id, productIds);
+
+      if (!result.success) {
+        let statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+        
+        if (result.error?.code === 'TERMINAL_NOT_FOUND') {
+          statusCode = HttpStatusCode.NOT_FOUND;
+        } else if (result.error?.code === 'PRODUCTS_NOT_FOUND' || result.error?.code === 'INVALID_INPUT') {
+          statusCode = HttpStatusCode.BAD_REQUEST;
+        }
+
+        res.status(statusCode).json({
+          success: false,
+          error: result.error,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const response: SuccessResponse = {
+        success: true,
+        data: { message: 'Products assigned successfully' },
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(HttpStatusCode.OK).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Remove products from a terminal (bulk operation)
+   * DELETE /api/v1/pos-terminals/:id/products
+   */
+  static async removeProductsFromTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { productIds } = req.body;
+
+      // Validate request body
+      if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        res.status(HttpStatusCode.BAD_REQUEST).json({
+          success: false,
+          error: {
+            code: 'INVALID_REQUEST_BODY',
+            message: 'productIds must be a non-empty array of product IDs',
+          },
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // Validate that all productIds are strings (UUIDs)
+      const invalidIds = productIds.filter(id => typeof id !== 'string' || !id.trim());
+      if (invalidIds.length > 0) {
+        res.status(HttpStatusCode.BAD_REQUEST).json({
+          success: false,
+          error: {
+            code: 'INVALID_PRODUCT_IDS',
+            message: 'All product IDs must be valid strings',
+          },
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const result = await POSTerminalService.removeProductsFromTerminal(id, productIds);
+
+      if (!result.success) {
+        let statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+        
+        if (result.error?.code === 'TERMINAL_NOT_FOUND') {
+          statusCode = HttpStatusCode.NOT_FOUND;
+        } else if (result.error?.code === 'INVALID_INPUT') {
+          statusCode = HttpStatusCode.BAD_REQUEST;
+        }
+
+        res.status(statusCode).json({
+          success: false,
+          error: result.error,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const response: SuccessResponse = {
+        success: true,
+        data: { message: 'Products removed successfully' },
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(HttpStatusCode.OK).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

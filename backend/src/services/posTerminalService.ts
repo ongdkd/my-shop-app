@@ -6,6 +6,7 @@ import {
   CreatePOSTerminalRequest,
   UpdatePOSTerminalRequest,
   ServiceResponse,
+  Product,
 } from '../types';
 
 export class POSTerminalService {
@@ -429,6 +430,255 @@ export class POSTerminalService {
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Failed to fetch terminal statistics',
+          details: error,
+        },
+      };
+    }
+  }
+
+  /**
+   * Get products assigned to a terminal
+   */
+  static async getTerminalProducts(terminalId: string): Promise<ServiceResponse<Product[]>> {
+    try {
+      if (!supabaseAdmin) {
+        return {
+          success: false,
+          error: {
+            code: 'SUPABASE_NOT_CONFIGURED',
+            message: 'Database connection not available',
+          },
+        };
+      }
+
+      // First verify the terminal exists
+      const terminalResult = await this.getTerminalById(terminalId);
+      if (!terminalResult.success) {
+        return {
+          success: false,
+          error: terminalResult.error,
+        };
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from('pos_terminal_products')
+        .select(`
+          products (
+            id,
+            barcode,
+            name,
+            price,
+            image_url,
+            category,
+            stock_quantity,
+            is_active,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('terminal_id', terminalId)
+        .eq('is_active', true)
+        .eq('products.is_active', true);
+
+      if (error) {
+        return {
+          success: false,
+          error: {
+            code: 'DATABASE_ERROR',
+            message: error.message,
+            details: error,
+          },
+        };
+      }
+
+      // Extract products from the nested structure
+      const products = data?.map((item: any) => item.products).filter(Boolean) || [];
+
+      return {
+        success: true,
+        data: products,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to fetch terminal products',
+          details: error,
+        },
+      };
+    }
+  }
+
+  /**
+   * Assign products to a terminal (bulk operation)
+   */
+  static async assignProductsToTerminal(terminalId: string, productIds: string[]): Promise<ServiceResponse<void>> {
+    try {
+      if (!supabaseAdmin) {
+        return {
+          success: false,
+          error: {
+            code: 'SUPABASE_NOT_CONFIGURED',
+            message: 'Database connection not available',
+          },
+        };
+      }
+
+      // Validate input
+      if (!productIds || productIds.length === 0) {
+        return {
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Product IDs array cannot be empty',
+          },
+        };
+      }
+
+      // First verify the terminal exists
+      const terminalResult = await this.getTerminalById(terminalId);
+      if (!terminalResult.success) {
+        return {
+          success: false,
+          error: terminalResult.error,
+        };
+      }
+
+      // Verify all products exist
+      const { data: products, error: productsError } = await supabaseAdmin
+        .from('products')
+        .select('id')
+        .in('id', productIds)
+        .eq('is_active', true);
+
+      if (productsError) {
+        return {
+          success: false,
+          error: {
+            code: 'DATABASE_ERROR',
+            message: productsError.message,
+            details: productsError,
+          },
+        };
+      }
+
+      const foundProductIds = products?.map(p => p.id) || [];
+      const missingProductIds = productIds.filter(id => !foundProductIds.includes(id));
+
+      if (missingProductIds.length > 0) {
+        return {
+          success: false,
+          error: {
+            code: 'PRODUCTS_NOT_FOUND',
+            message: `Products not found: ${missingProductIds.join(', ')}`,
+          },
+        };
+      }
+
+      // Prepare assignment records
+      const assignments = productIds.map(productId => ({
+        terminal_id: terminalId,
+        product_id: productId,
+        is_active: true,
+      }));
+
+      // Use upsert to handle existing assignments
+      const { error } = await supabaseAdmin
+        .from('pos_terminal_products')
+        .upsert(assignments, {
+          onConflict: 'terminal_id,product_id',
+          ignoreDuplicates: false,
+        });
+
+      if (error) {
+        return {
+          success: false,
+          error: {
+            code: 'DATABASE_ERROR',
+            message: error.message,
+            details: error,
+          },
+        };
+      }
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to assign products to terminal',
+          details: error,
+        },
+      };
+    }
+  }
+
+  /**
+   * Remove products from a terminal (bulk operation)
+   */
+  static async removeProductsFromTerminal(terminalId: string, productIds: string[]): Promise<ServiceResponse<void>> {
+    try {
+      if (!supabaseAdmin) {
+        return {
+          success: false,
+          error: {
+            code: 'SUPABASE_NOT_CONFIGURED',
+            message: 'Database connection not available',
+          },
+        };
+      }
+
+      // Validate input
+      if (!productIds || productIds.length === 0) {
+        return {
+          success: false,
+          error: {
+            code: 'INVALID_INPUT',
+            message: 'Product IDs array cannot be empty',
+          },
+        };
+      }
+
+      // First verify the terminal exists
+      const terminalResult = await this.getTerminalById(terminalId);
+      if (!terminalResult.success) {
+        return {
+          success: false,
+          error: terminalResult.error,
+        };
+      }
+
+      // Remove product assignments (soft delete by setting is_active to false)
+      const { error } = await supabaseAdmin
+        .from('pos_terminal_products')
+        .update({ is_active: false })
+        .eq('terminal_id', terminalId)
+        .in('product_id', productIds);
+
+      if (error) {
+        return {
+          success: false,
+          error: {
+            code: 'DATABASE_ERROR',
+            message: error.message,
+            details: error,
+          },
+        };
+      }
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to remove products from terminal',
           details: error,
         },
       };

@@ -4,6 +4,7 @@ import {
   validateCreatePOSTerminal,
   validateUpdatePOSTerminal,
   validateUUIDParam,
+  validateProductAssignment,
   sanitizeInput,
 } from '../middleware/validation';
 import { POSTerminalController } from '../controllers/posTerminalController';
@@ -45,6 +46,14 @@ router.get(
   requirePOSAccess, // Only POS operators and admins can view stats
   validateUUIDParam('id'),
   POSTerminalController.getTerminalStats
+);
+
+// GET /api/v1/pos-terminals/:id/products - Get products assigned to terminal
+router.get(
+  '/:id/products',
+  authenticateToken,
+  validateUUIDParam('id'),
+  POSTerminalController.getTerminalProducts
 );
 
 // =============================================
@@ -89,6 +98,30 @@ router.delete(
   requireAdmin, // Only admins can delete terminals
   validateUUIDParam('id'),
   POSTerminalController.deleteTerminal
+);
+
+// =============================================
+// PRODUCT MANAGEMENT ROUTES
+// =============================================
+
+// POST /api/v1/pos-terminals/:id/products - Assign products to terminal (bulk)
+router.post(
+  '/:id/products',
+  sanitizeInput,
+  authenticateToken,
+  requirePOSAccess, // POS operators and admins can assign products
+  validateProductAssignment,
+  POSTerminalController.assignProductsToTerminal
+);
+
+// DELETE /api/v1/pos-terminals/:id/products - Remove products from terminal (bulk)
+router.delete(
+  '/:id/products',
+  sanitizeInput,
+  authenticateToken,
+  requirePOSAccess, // POS operators and admins can remove products
+  validateProductAssignment,
+  POSTerminalController.removeProductsFromTerminal
 );
 
 export default router;

@@ -808,6 +808,102 @@ export class ApiClient {
     throw new ApiError("STATS_FAILED", "Failed to get terminal statistics");
   }
 
+  // Get products assigned to a specific terminal
+  async getTerminalProducts(terminalId: string): Promise<Product[]> {
+    try {
+      const response = await this.get<ApiResponse<Product[]>>(
+        `/api/v1/pos-terminals/${terminalId}/products`
+      );
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      return [];
+    } catch (error) {
+      // Check if this is a terminal-specific error that should not fall back
+      if (error instanceof ApiError) {
+        // Terminal not found - this is a legitimate error, don't fall back
+        if (error.code === 'TERMINAL_NOT_FOUND' || error.status === 404) {
+          throw new ApiError(
+            'TERMINAL_NOT_FOUND',
+            `POS Terminal '${terminalId}' not found`,
+            404
+          );
+        }
+        
+        // Terminal inactive - this is a legitimate error, don't fall back
+        if (error.code === 'TERMINAL_INACTIVE') {
+          throw new ApiError(
+            'TERMINAL_INACTIVE',
+            `POS Terminal '${terminalId}' is inactive`,
+            403
+          );
+        }
+        
+        // Authentication errors should be propagated
+        if (error.status === 401 || error.status === 403) {
+          throw error;
+        }
+      }
+      
+      // For network errors or endpoint not available, fall back to all products
+      // This provides backward compatibility during development
+      console.warn(`Terminal products endpoint not available for ${terminalId}, falling back to all products:`, error);
+      
+      try {
+        const allProductsResponse = await this.getProducts({ is_active: true });
+        return allProductsResponse.data;
+      } catch (fallbackError) {
+        console.error("Failed to fetch products (fallback also failed):", fallbackError);
+        
+        // If fallback also fails, throw the original error for better debugging
+        if (error instanceof ApiError) {
+          throw error;
+        }
+        
+        throw new ApiError(
+          'PRODUCTS_FETCH_FAILED',
+          'Unable to fetch terminal products',
+          500
+        );
+      }
+    }
+  }
+
+  // Assign products to a terminal
+  async assignProductsToTerminal(terminalId: string, productIds: string[]): Promise<void> {
+    const response = await this.post<ApiResponse<void>>(
+      `/api/v1/pos-terminals/${terminalId}/products`,
+      { product_ids: productIds }
+    );
+
+    if (!response.success) {
+      throw new ApiError(
+        "ASSIGN_PRODUCTS_FAILED",
+        "Failed to assign products to terminal"
+      );
+    }
+  }
+
+  // Remove products from a terminal
+  async removeProductsFromTerminal(terminalId: string, productIds: string[]): Promise<void> {
+    const response = await this.request<ApiResponse<void>>(
+      `/api/v1/pos-terminals/${terminalId}/products`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ product_ids: productIds }),
+      }
+    );
+
+    if (!response.success) {
+      throw new ApiError(
+        "REMOVE_PRODUCTS_FAILED",
+        "Failed to remove products from terminal"
+      );
+    }
+  }
+
   // =============================================
   // HEALTH CHECK
   // =============================================

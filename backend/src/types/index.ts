@@ -13,6 +13,8 @@ export interface AuthenticatedRequest extends Request {
   user?: User;
   token?: string;
   userRole?: string;
+  headers: Request["headers"];
+  ip: string;
 }
 
 // =============================================

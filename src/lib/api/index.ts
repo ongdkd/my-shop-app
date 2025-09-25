@@ -37,6 +37,10 @@ export {
   usePOSTerminals,
   usePOSTerminal,
   usePOSTerminalMutations,
+  useTerminalProducts,
+  useTerminalProductMutations,
+  usePOSTerminalWithProducts,
+  usePOSTerminalsQuery,
   useAuth,
 } from './hooks';
 
@@ -55,7 +59,6 @@ export {
   useOrdersByTerminalQuery,
   useSalesSummaryQuery,
   useCreateOrderMutation,
-  usePOSTerminalsQuery,
   usePOSTerminalQuery,
   usePOSTerminalStatsQuery,
   useCreatePOSTerminalMutation,

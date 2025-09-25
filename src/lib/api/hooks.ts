@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from './client';
 import { handleApiError, withRetry, debounce } from './errors';
+import { withNetworkRetry, withTerminalRetry, withProductRetry, getRetryMessage } from './retryUtils';
 import {
   Product,
   CreateProductRequest,
@@ -20,6 +21,8 @@ interface ApiState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
+  retrying: boolean;
+  retryCount: number;
 }
 
 interface PaginatedApiState<T> {
@@ -34,6 +37,8 @@ interface PaginatedApiState<T> {
   } | null;
   loading: boolean;
   error: string | null;
+  retrying: boolean;
+  retryCount: number;
 }
 
 // =============================================
@@ -46,27 +51,55 @@ export const useProducts = (params?: ProductQueryParams) => {
     pagination: null,
     loading: true,
     error: null,
+    retrying: false,
+    retryCount: 0,
   });
 
   const fetchProducts = useCallback(async (queryParams?: ProductQueryParams) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState(prev => ({ ...prev, loading: true, error: null, retrying: false, retryCount: 0 }));
 
     try {
-      const response = await withRetry(() => apiClient.getProducts(queryParams));
+      const response = await withProductRetry(() => apiClient.getProducts(queryParams));
       setState({
         data: response.data,
         pagination: response.pagination,
         loading: false,
         error: null,
+        retrying: false,
+        retryCount: 0,
       });
     } catch (error) {
       setState(prev => ({
         ...prev,
         loading: false,
         error: handleApiError(error),
+        retrying: false,
       }));
     }
   }, []);
+
+  const retryFetch = useCallback(async () => {
+    setState(prev => ({ ...prev, retrying: true, error: null, retryCount: prev.retryCount + 1 }));
+    
+    try {
+      const response = await withProductRetry(() => apiClient.getProducts(params));
+      setState(prev => ({
+        data: response.data,
+        pagination: response.pagination,
+        loading: false,
+        error: null,
+        retrying: false,
+        retryCount: prev.retryCount,
+      }));
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: handleApiError(error),
+        retrying: false,
+      }));
+    }
+  }, [params]);
 
   useEffect(() => {
     fetchProducts(params);
@@ -74,7 +107,7 @@ export const useProducts = (params?: ProductQueryParams) => {
 
   const refetch = useCallback(() => fetchProducts(params), [fetchProducts, params]);
 
-  return { ...state, refetch, fetchProducts };
+  return { ...state, refetch, fetchProducts, retry: retryFetch };
 };
 
 export const useProduct = (id: string | null) => {
@@ -82,11 +115,13 @@ export const useProduct = (id: string | null) => {
     data: null,
     loading: false,
     error: null,
+    retrying: false,
+    retryCount: 0,
   });
 
   useEffect(() => {
     if (!id) {
-      setState({ data: null, loading: false, error: null });
+      setState({ data: null, loading: false, error: null, retrying: false, retryCount: 0 });
       return;
     }
 
@@ -95,7 +130,7 @@ export const useProduct = (id: string | null) => {
 
       try {
         const product = await apiClient.getProductById(id);
-        setState({ data: product, loading: false, error: null });
+        setState({ data: product, loading: false, error: null, retrying: false, retryCount: 0 });
       } catch (error) {
         setState(prev => ({
           ...prev,
@@ -117,12 +152,14 @@ export const useProductSearch = () => {
     pagination: null,
     loading: false,
     error: null,
+    retrying: false,
+    retryCount: 0,
   });
 
   const search = useCallback(
     debounce(async (query: string, limit?: number) => {
       if (!query.trim()) {
-        setState({ data: [], pagination: null, loading: false, error: null });
+        setState({ data: [], pagination: null, loading: false, error: null, retrying: false, retryCount: 0 });
         return;
       }
 
@@ -135,6 +172,8 @@ export const useProductSearch = () => {
           pagination: response.pagination,
           loading: false,
           error: null,
+          retrying: false,
+          retryCount: 0,
         });
       } catch (error) {
         setState(prev => ({
@@ -218,6 +257,8 @@ export const useOrders = (params?: OrderQueryParams) => {
     pagination: null,
     loading: true,
     error: null,
+    retrying: false,
+    retryCount: 0,
   });
 
   const fetchOrders = useCallback(async (queryParams?: OrderQueryParams) => {
@@ -230,6 +271,8 @@ export const useOrders = (params?: OrderQueryParams) => {
         pagination: response.pagination,
         loading: false,
         error: null,
+        retrying: false,
+        retryCount: 0,
       });
     } catch (error) {
       setState(prev => ({
@@ -254,11 +297,13 @@ export const useOrder = (id: string | null) => {
     data: null,
     loading: false,
     error: null,
+    retrying: false,
+    retryCount: 0,
   });
 
   useEffect(() => {
     if (!id) {
-      setState({ data: null, loading: false, error: null });
+      setState({ data: null, loading: false, error: null, retrying: false, retryCount: 0 });
       return;
     }
 
@@ -267,7 +312,7 @@ export const useOrder = (id: string | null) => {
 
       try {
         const order = await apiClient.getOrderById(id);
-        setState({ data: order, loading: false, error: null });
+        setState({ data: order, loading: false, error: null, retrying: false, retryCount: 0 });
       } catch (error) {
         setState(prev => ({
           ...prev,
@@ -314,6 +359,8 @@ export const usePOSTerminals = (activeOnly?: boolean) => {
     data: null,
     loading: true,
     error: null,
+    retrying: false,
+    retryCount: 0,
   });
 
   const fetchTerminals = useCallback(async (active?: boolean) => {
@@ -321,7 +368,7 @@ export const usePOSTerminals = (activeOnly?: boolean) => {
 
     try {
       const terminals = await withRetry(() => apiClient.getPOSTerminals(active));
-      setState({ data: terminals, loading: false, error: null });
+      setState({ data: terminals, loading: false, error: null, retrying: false, retryCount: 0 });
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -345,33 +392,60 @@ export const usePOSTerminal = (id: string | null) => {
     data: null,
     loading: false,
     error: null,
+    retrying: false,
+    retryCount: 0,
   });
 
-  useEffect(() => {
+  const fetchTerminal = useCallback(async () => {
     if (!id) {
-      setState({ data: null, loading: false, error: null });
+      setState({ data: null, loading: false, error: null, retrying: false, retryCount: 0 });
       return;
     }
 
-    const fetchTerminal = async () => {
-      setState(prev => ({ ...prev, loading: true, error: null }));
+    setState(prev => ({ ...prev, loading: true, error: null, retrying: false, retryCount: 0 }));
 
-      try {
-        const terminal = await apiClient.getPOSTerminalById(id);
-        setState({ data: terminal, loading: false, error: null });
-      } catch (error) {
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          error: handleApiError(error),
-        }));
-      }
-    };
-
-    fetchTerminal();
+    try {
+      const terminal = await withTerminalRetry(() => apiClient.getPOSTerminalById(id));
+      setState({ data: terminal, loading: false, error: null, retrying: false, retryCount: 0 });
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: handleApiError(error),
+        retrying: false,
+      }));
+    }
   }, [id]);
 
-  return state;
+  const retryFetch = useCallback(async () => {
+    if (!id) return;
+
+    setState(prev => ({ ...prev, retrying: true, error: null, retryCount: prev.retryCount + 1 }));
+    
+    try {
+      const terminal = await withTerminalRetry(() => apiClient.getPOSTerminalById(id));
+      setState(prev => ({
+        data: terminal,
+        loading: false,
+        error: null,
+        retrying: false,
+        retryCount: prev.retryCount,
+      }));
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: handleApiError(error),
+        retrying: false,
+      }));
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchTerminal();
+  }, [fetchTerminal]);
+
+  return { ...state, refetch: fetchTerminal, retry: retryFetch };
 };
 
 export const usePOSTerminalMutations = () => {
@@ -430,6 +504,200 @@ export const usePOSTerminalMutations = () => {
     loading,
     error,
   };
+};
+
+// Hook for fetching terminal products
+export const useTerminalProducts = (terminalId: string | null) => {
+  const [state, setState] = useState<ApiState<Product[]>>({
+    data: null,
+    loading: false,
+    error: null,
+    retrying: false,
+    retryCount: 0,
+  });
+
+  const fetchProducts = useCallback(async (id: string) => {
+    setState(prev => ({ ...prev, loading: true, error: null, retrying: false, retryCount: 0 }));
+
+    try {
+      const products = await withTerminalRetry(() => apiClient.getTerminalProducts(id));
+      setState({ data: products, loading: false, error: null, retrying: false, retryCount: 0 });
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: handleApiError(error),
+        retrying: false,
+      }));
+    }
+  }, []);
+
+  const retryFetch = useCallback(async () => {
+    if (!terminalId) return;
+
+    setState(prev => ({ ...prev, retrying: true, error: null, retryCount: prev.retryCount + 1 }));
+    
+    try {
+      const products = await withTerminalRetry(() => apiClient.getTerminalProducts(terminalId));
+      setState(prev => ({
+        data: products,
+        loading: false,
+        error: null,
+        retrying: false,
+        retryCount: prev.retryCount,
+      }));
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: handleApiError(error),
+        retrying: false,
+      }));
+    }
+  }, [terminalId]);
+
+  useEffect(() => {
+    if (!terminalId) {
+      setState({ data: null, loading: false, error: null, retrying: false, retryCount: 0 });
+      return;
+    }
+
+    fetchProducts(terminalId);
+  }, [terminalId, fetchProducts]);
+
+  const refetch = useCallback(() => {
+    if (terminalId) {
+      fetchProducts(terminalId);
+    }
+  }, [terminalId, fetchProducts]);
+
+  return { ...state, refetch, retry: retryFetch };
+};
+
+// Hook for managing terminal product assignments
+export const useTerminalProductMutations = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const assignProducts = useCallback(async (terminalId: string, productIds: string[]): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await apiClient.assignProductsToTerminal(terminalId, productIds);
+      setLoading(false);
+      return true;
+    } catch (error) {
+      setLoading(false);
+      setError(handleApiError(error));
+      return false;
+    }
+  }, []);
+
+  const removeProducts = useCallback(async (terminalId: string, productIds: string[]): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await apiClient.removeProductsFromTerminal(terminalId, productIds);
+      setLoading(false);
+      return true;
+    } catch (error) {
+      setLoading(false);
+      setError(handleApiError(error));
+      return false;
+    }
+  }, []);
+
+  return {
+    assignProducts,
+    removeProducts,
+    loading,
+    error,
+  };
+};
+
+// Combined hook for terminal with products (useful for POS pages)
+export const usePOSTerminalWithProducts = (terminalId: string | null) => {
+  const terminalState = usePOSTerminal(terminalId);
+  const productsState = useTerminalProducts(terminalId);
+
+  const refetchAll = useCallback(async () => {
+    if (terminalId) {
+      await Promise.all([
+        terminalState.refetch(),
+        productsState.refetch(),
+      ]);
+    }
+  }, [terminalId, terminalState.refetch, productsState.refetch]);
+
+  const retryAll = useCallback(async () => {
+    if (terminalId) {
+      await Promise.all([
+        terminalState.retry(),
+        productsState.retry(),
+      ]);
+    }
+  }, [terminalId, terminalState.retry, productsState.retry]);
+
+  return {
+    terminal: terminalState.data,
+    products: productsState.data || [],
+    loading: terminalState.loading || productsState.loading,
+    error: terminalState.error || productsState.error,
+    retrying: terminalState.retrying || productsState.retrying,
+    retryCount: Math.max(terminalState.retryCount, productsState.retryCount),
+    terminalNotFound: terminalState.error?.includes('not found') || false,
+    terminalInactive: terminalState.data && !terminalState.data.is_active,
+    refetch: refetchAll,
+    retry: retryAll,
+  };
+};
+
+// Hook for querying terminals (with search/filter capabilities)
+export const usePOSTerminalsQuery = (params?: { active?: boolean; search?: string }) => {
+  const [state, setState] = useState<ApiState<POSTerminal[]>>({
+    data: null,
+    loading: true,
+    error: null,
+    retrying: false,
+    retryCount: 0,
+  });
+
+  const fetchTerminals = useCallback(async (queryParams?: { active?: boolean; search?: string }) => {
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const terminals = await withRetry(() => apiClient.getPOSTerminals(queryParams?.active));
+      
+      // Apply search filter if provided
+      let filteredTerminals = terminals;
+      if (queryParams?.search) {
+        const searchTerm = queryParams.search.toLowerCase();
+        filteredTerminals = terminals.filter(terminal => 
+          terminal.terminal_name.toLowerCase().includes(searchTerm) ||
+          terminal.location?.toLowerCase().includes(searchTerm) ||
+          terminal.id.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      setState({ data: filteredTerminals, loading: false, error: null, retrying: false, retryCount: 0 });
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: handleApiError(error),
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTerminals(params);
+  }, [fetchTerminals, params]);
+
+  const refetch = useCallback(() => fetchTerminals(params), [fetchTerminals, params]);
+
+  return { ...state, refetch, fetchTerminals };
 };
 
 // =============================================

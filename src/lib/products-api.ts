@@ -56,29 +56,74 @@ const savePosMappings = (mappings: PosProductMapping[]): void => {
  */
 export const getProductsByPosId = async (posId: string): Promise<Product[]> => {
   try {
-    // Get all products from API
-    const response = await apiClient.getProducts({ is_active: true });
-    const apiProducts = response.data;
+    // First try to get products from the new terminal-specific endpoint
+    const apiProducts = await apiClient.getTerminalProducts(posId);
     
     // Convert API products to old format
-    const allProducts = apiProducts.map(apiProductToOldProduct);
+    const terminalProducts = apiProducts.map(apiProductToOldProduct);
     
-    // Get POS mappings from localStorage
-    const mappings = loadPosMappings();
-    const mapping = mappings.find((m) => m.posId === posId);
-    
-    if (!mapping) return [];
-
-    // Filter products by POS mapping
-    const posProducts = allProducts.filter((product) =>
-      mapping.productIds.includes(product.id)
-    );
-
     // Filter out hidden products for customer-facing POS
-    return posProducts.filter((product) => !product.hidden);
-  } catch (error) {
-    console.error("Error fetching products by POS ID:", error);
-    return [];
+    return terminalProducts.filter((product) => !product.hidden);
+  } catch (terminalError) {
+    // Distinguish between different types of terminal errors
+    const errorMessage = terminalError instanceof Error ? terminalError.message : String(terminalError);
+    
+    // If terminal not found, don't fall back - this is a legitimate error
+    if (errorMessage.includes('TERMINAL_NOT_FOUND') || errorMessage.includes('not found')) {
+      console.error(`Terminal ${posId} not found:`, terminalError);
+      throw new Error(`POS Terminal '${posId}' not found. Please check the terminal ID.`);
+    }
+    
+    // If terminal is inactive, don't fall back - this is a legitimate error
+    if (errorMessage.includes('TERMINAL_INACTIVE') || errorMessage.includes('inactive')) {
+      console.error(`Terminal ${posId} is inactive:`, terminalError);
+      throw new Error(`POS Terminal '${posId}' is currently inactive. Please contact your administrator.`);
+    }
+    
+    // For network/API errors, fall back to localStorage mappings for backward compatibility
+    console.warn(`Terminal products endpoint failed for ${posId}, falling back to localStorage mappings:`, terminalError);
+    
+    try {
+      // Fallback to localStorage mappings for backward compatibility
+      const response = await apiClient.getProducts({ is_active: true });
+      const apiProducts = response.data;
+      
+      // Convert API products to old format
+      const allProducts = apiProducts.map(apiProductToOldProduct);
+      
+      // Get POS mappings from localStorage
+      const mappings = loadPosMappings();
+      const mapping = mappings.find((m) => m.posId === posId);
+      
+      if (!mapping) {
+        console.warn(`No localStorage mapping found for terminal ${posId}`);
+        return [];
+      }
+
+      // Filter products by POS mapping
+      const posProducts = allProducts.filter((product) =>
+        mapping.productIds.includes(product.id)
+      );
+
+      // Filter out hidden products for customer-facing POS
+      const filteredProducts = posProducts.filter((product) => !product.hidden);
+      
+      console.info(`Fallback successful: Found ${filteredProducts.length} products for terminal ${posId} via localStorage`);
+      return filteredProducts;
+    } catch (fallbackError) {
+      console.error(`Error fetching products by POS ID (fallback also failed) for terminal ${posId}:`, fallbackError);
+      
+      // Distinguish between product fetch errors and terminal errors
+      const fallbackErrorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      
+      if (fallbackErrorMessage.includes('Network') || fallbackErrorMessage.includes('connection')) {
+        throw new Error(`Unable to connect to the server. Please check your internet connection and try again.`);
+      }
+      
+      // For other errors, return empty array to prevent POS from crashing
+      console.warn(`Returning empty product list for terminal ${posId} due to errors`);
+      return [];
+    }
   }
 };
 

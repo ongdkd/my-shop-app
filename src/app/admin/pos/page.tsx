@@ -22,7 +22,7 @@ interface PosTerminal {
 export default function AdminPOSPage() {
   const {
     data: apiTerminals = [],
-    isLoading,
+    loading: isLoading,
     error,
     refetch,
   } = usePOSTerminalsQuery();
@@ -39,7 +39,7 @@ export default function AdminPOSPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Convert API terminals to local format
-  const posTerminals: PosTerminal[] = apiTerminals.map((terminal) => ({
+  const posTerminals: PosTerminal[] = (apiTerminals || []).map((terminal) => ({
     id: terminal.id,
     name: terminal.terminal_name,
     themeColor: terminal.configuration?.theme_color || "#3B82F6",
@@ -110,7 +110,7 @@ export default function AdminPOSPage() {
                 Error Details:
               </p>
               <p className="text-sm text-gray-600 font-mono">
-                {error instanceof Error ? error.message : String(error)}
+                {typeof error === 'string' ? error : 'An error occurred'}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -512,10 +512,10 @@ export default function AdminPOSPage() {
                       </button>
                     </div>
 
-                    <div className="mb-4">
+                    <div className="mb-4 space-y-2">
                       <button
-                        onClick={() => window.open(`/pos/${pos.id}`, "_blank")}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
+                        onClick={() => window.location.href = `/admin/pos-terminals/${pos.id}/products`}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors font-medium"
                       >
                         <svg
                           className="w-5 h-5"
@@ -530,7 +530,26 @@ export default function AdminPOSPage() {
                             d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
                           />
                         </svg>
-                        Open POS Terminal
+                        Manage Products
+                      </button>
+                      <button
+                        onClick={() => window.open(`/pos/${pos.id}`, "_blank")}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                        Launch POS
                       </button>
                     </div>
                   </div>

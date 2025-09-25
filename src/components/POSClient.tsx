@@ -12,18 +12,26 @@ import { ShoppingCartIcon } from "@heroicons/react/24/outline";
 import { useCartStore } from "@/store/cartStore";
 import { apiClient, handleApiError } from "@/lib/api";
 import type { Product } from "@/types";
+import type { POSTerminal } from "@/lib/api/types";
+import { useProductAssignmentUpdates } from "@/lib/realtime/hooks";
+import { useInfoToast } from "@/components/ToastNotification";
 
 interface POSClientProps {
   products: Product[];
   posId?: string;
+  terminal?: POSTerminal;
 }
 
-export default function POSClient({ products, posId }: POSClientProps) {
+export default function POSClient({ products, posId, terminal }: POSClientProps) {
   const { addToCart, clearCartIfDifferentPos, setCurrentPos, getTotalItems, userName } =
     useCartStore();
   const [showCart, setShowCart] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [hasRecentUpdate, setHasRecentUpdate] = useState(false);
+  
+  // Get toast function for notifications
+  const showInfoToast = useInfoToast();
 
 
   const totalItems = getTotalItems();
@@ -51,6 +59,21 @@ export default function POSClient({ products, posId }: POSClientProps) {
       document.body.style.overflow = "auto";
     };
   }, [sidebarOpen, showCart]);
+
+  // Listen for product assignment changes for this terminal
+  useProductAssignmentUpdates(posId || null, ({ productIds, action }) => {
+    const productCount = productIds.length;
+    const actionText = action === 'assigned' ? 'added to' : 'removed from';
+    
+    showInfoToast(
+      `Products Updated`,
+      `${productCount} product${productCount > 1 ? 's' : ''} ${actionText} this terminal`
+    );
+    
+    // Show visual indicator
+    setHasRecentUpdate(true);
+    setTimeout(() => setHasRecentUpdate(false), 3000); // Hide after 3 seconds
+  });
 
   const handleAddToCart = async (product: Product) => {
     await addToCart(product);
@@ -127,14 +150,39 @@ export default function POSClient({ products, posId }: POSClientProps) {
           {/* Page Title */}
           <div className="mb-6 sm:mb-8">
             <div className="flex items-center gap-3 sm:gap-4 mb-4">
-              <div className="w-1.5 sm:w-2 h-8 sm:h-12 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full"></div>
-              <div>
-                <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-1 sm:mb-2">
-                  {posId ? `${posId.toUpperCase()} Terminal` : "All Products"}
-                </h1>
-                <p className="text-gray-600 text-sm sm:text-lg">
-                  {products.length} products available
-                </p>
+              <div 
+                className="w-1.5 sm:w-2 h-8 sm:h-12 rounded-full"
+                style={{ 
+                  background: terminal?.configuration?.theme_color 
+                    ? `linear-gradient(to bottom, ${terminal.configuration.theme_color}, ${terminal.configuration.theme_color}dd)` 
+                    : 'linear-gradient(to bottom, #3B82F6, #2563EB)' 
+                }}
+              ></div>
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-1 sm:mb-2">
+                    {terminal?.terminal_name || (posId ? `${posId.toUpperCase()} Terminal` : "All Products")}
+                  </h1>
+                  {hasRecentUpdate && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium animate-pulse">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      Updated
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <p className="text-gray-600 text-sm sm:text-lg">
+                    {products.length} products available
+                  </p>
+                  {terminal?.location && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <p className="text-gray-500 text-sm sm:text-base">
+                        {terminal.location}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>

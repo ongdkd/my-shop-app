@@ -9,7 +9,7 @@ import AuthGuard from "@/components/AuthGuard";
 export default function AdminPage() {
   const router = useRouter();
   const { data: ordersData, isLoading: ordersLoading, refetch: refreshOrders } = useOrdersQuery({ limit: 100 });
-  const { data: posTerminals, isLoading: posLoading } = usePOSTerminalsQuery(true); // Get active terminals only
+  const { data: posTerminals, loading: posLoading } = usePOSTerminalsQuery({ active: true }); // Get active terminals only
   
   // Convert API orders to legacy format for compatibility
   const orders = ordersData?.data || [];

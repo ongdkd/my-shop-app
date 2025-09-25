@@ -21,8 +21,8 @@ export default function AdminPosProductsPage() {
     isLoading: productsLoading,
     refetch: refetchProducts,
   } = useProductsQuery();
-  const { data: posTerminals, isLoading: terminalsLoading } =
-    usePOSTerminalsQuery(true);
+  const { data: posTerminals, loading: terminalsLoading } =
+    usePOSTerminalsQuery({ active: true });
   const {
     createProduct,
     updateProduct,

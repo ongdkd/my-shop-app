@@ -333,6 +333,22 @@ export const validateBulkStockUpdate = [
   handleValidationErrors,
 ];
 
+export const validateProductAssignment = [
+  param('id')
+    .isUUID()
+    .withMessage('Terminal ID must be a valid UUID'),
+  
+  body('productIds')
+    .isArray({ min: 1 })
+    .withMessage('productIds must be a non-empty array'),
+  
+  body('productIds.*')
+    .isUUID()
+    .withMessage('Each product ID must be a valid UUID'),
+  
+  handleValidationErrors,
+];
+
 // =============================================
 // SEARCH VALIDATION
 // =============================================
