@@ -47,7 +47,7 @@ router.get(
 
 // GET /api/v1/products/:id - Get product by ID
 // IMPORTANT: This wildcard route must come AFTER all specific routes above
-router.get(
+router.get(  
   "/:id",
   authenticateToken,
   validateUUIDParam("id"),
