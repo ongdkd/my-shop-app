@@ -1,12 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { usePOSTerminalWithProducts } from "@/lib/api";
 import { apiProductToOldProduct } from "@/lib/api/adapters";
 import POSClient from "@/components/POSClient";
 import { notFound } from "next/navigation";
-import { Product } from "@/types";
-import { POSTerminal } from "@/lib/api/types";
 import { FullPageLoading } from "@/components/LoadingSpinner";
 import { FullPageError } from "@/components/ErrorDisplay";
 import { useTerminalRealTimeUpdates } from "@/lib/realtime/hooks";
@@ -14,22 +12,11 @@ import { useTerminalRealTimeUpdates } from "@/lib/realtime/hooks";
 export default function POSPage({
   params,
 }: {
-  params: Promise<{ posId: string }>;
+  params: { posId: string };
 }) {
-  const [posId, setPosId] = useState<string>("");
-  const [isInitialized, setIsInitialized] = useState(false);
+  const posId = params.posId;
 
-  // Initialize posId from params
-  useEffect(() => {
-    const initializePosId = async () => {
-      const resolvedParams = await params;
-      setPosId(resolvedParams.posId);
-      setIsInitialized(true);
-    };
-    initializePosId();
-  }, [params]);
-
-  // Use the enhanced hook for terminal and products data
+  // Fetch terminal + products
   const {
     terminal,
     products,
@@ -41,29 +28,29 @@ export default function POSPage({
     terminalInactive,
     refetch,
     retry,
-  } = usePOSTerminalWithProducts(isInitialized ? posId : null);
+  } = usePOSTerminalWithProducts(posId);
 
-  // Set up real-time updates using the custom hook
-  useTerminalRealTimeUpdates(
-    posId,
-    refetch,
-    {
-      enablePolling: true,
-      pollingInterval: 30000, // 30 seconds
-      enableFocusRefresh: true,
-    }
-  );
+  // Real-time updates
+  useTerminalRealTimeUpdates(posId, refetch, {
+    enablePolling: true,
+    pollingInterval: 30000, // 30s
+    enableFocusRefresh: true,
+  });
 
-  // Show loading state
-  if (!isInitialized || loading) {
+  // Loading state
+  if (loading) {
     return (
-      <FullPageLoading 
-        text={retrying ? `Retrying connection... (${retryCount}/3)` : "Loading terminal data..."} 
+      <FullPageLoading
+        text={
+          retrying
+            ? `Retrying connection... (${retryCount}/3)`
+            : "Loading terminal data..."
+        }
       />
     );
   }
 
-  // Handle terminal not found case
+  // Terminal not found
   if (terminalNotFound) {
     return (
       <FullPageError
@@ -71,14 +58,14 @@ export default function POSPage({
         message={`The POS terminal with ID "${posId}" could not be found. It may have been removed or the ID is incorrect.`}
         type="not-found"
         onRetry={retry}
-        onBack={() => window.location.href = '/pos'}
+        onBack={() => (window.location.href = "/pos")}
         backText="View All Terminals"
         retryText="Try Again"
       />
     );
   }
 
-  // Handle terminal inactive case
+  // Terminal inactive
   if (terminalInactive) {
     return (
       <FullPageError
@@ -86,37 +73,44 @@ export default function POSPage({
         message="This POS terminal is currently offline. Please contact your administrator to activate it."
         type="warning"
         onRetry={retry}
-        onBack={() => window.location.href = '/pos'}
+        onBack={() => (window.location.href = "/pos")}
         backText="Back to Terminals"
         retryText="Check Status"
       />
     );
   }
 
-  // Handle other errors
+  // Generic error
   if (error) {
-    const isNetworkError = error.includes('Network') || error.includes('connection');
-    
+    const isNetworkError =
+      error.includes("Network") || error.includes("connection");
+
     return (
       <FullPageError
         title={isNetworkError ? "Connection Error" : "Unable to Load Data"}
         message={error}
         type={isNetworkError ? "network" : "error"}
         onRetry={retry}
-        onBack={() => window.location.href = '/pos'}
+        onBack={() => (window.location.href = "/pos")}
         backText="Back to Terminals"
         retryText={retrying ? `Retrying... (${retryCount}/3)` : "Try Again"}
       />
     );
   }
 
-  // Ensure we have required data
+  // No data
   if (!terminal || !products) {
     return notFound();
   }
 
-  // Convert API products to old format for POSClient compatibility
+  // Convert API products to client format
   const convertedProducts = products.map(apiProductToOldProduct);
 
-  return <POSClient products={convertedProducts} posId={posId} terminal={terminal} />;
+  return (
+    <POSClient
+      products={convertedProducts}
+      posId={posId}
+      terminal={terminal}
+    />
+  );
 }

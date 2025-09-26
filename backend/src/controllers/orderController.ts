@@ -1,252 +1,181 @@
-import { Request, Response, NextFunction } from 'express';
-import { OrderService } from '../services/orderService';
-import { 
-  SuccessResponse, 
-  OrderQueryParams,
-  CreateOrderRequest,
-  HttpStatusCode 
-} from '../types';
+// controllers/orderController.ts
+import { Request, Response } from "express";
+import { createClient } from "@supabase/supabase-js";
 
-export class OrderController {
-  /**
-   * Get all orders with filtering and pagination
-   * GET /api/v1/orders
-   */
-  static async getOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export class OrdersController {
+  // ======================================
+  // GET /api/v1/orders
+  // ======================================
+  static async getAllOrders(req: Request, res: Response) {
     try {
-      const queryParams: OrderQueryParams = {
-        page: parseInt(req.query['page'] as string) || 1,
-        limit: Math.min(parseInt(req.query['limit'] as string) || 20, 100), // Max 100 items per page
-        pos_terminal_id: req.query['pos_terminal_id'] as string,
-        start_date: req.query['start_date'] as string,
-        end_date: req.query['end_date'] as string,
-        order_status: req.query['order_status'] as any,
-        payment_method: req.query['payment_method'] as any,
-      };
+      const { limit = "50", fields, page = "1" } = req.query;
+      const limitNum = Math.min(parseInt(limit as string, 10) || 50, 200);
+      const pageNum = Math.max(parseInt(page as string, 10), 1);
 
-      const result = await OrderService.getOrders(queryParams);
+      const selectFields =
+        typeof fields === "string"
+          ? fields
+          : "id,order_date,total_amount,terminal_id";
 
-      if (!result.success) {
-        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      const from = (pageNum - 1) * limitNum;
+      const to = from + limitNum - 1;
 
-      res.status(HttpStatusCode.OK).json(result.data);
-    } catch (error) {
-      next(error);
+      const { data, error } = await supabase
+        .from("orders")
+        .select(selectFields)
+        .order("order_date", { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+      return res.json({ data });
+    } catch (error: any) {
+      console.error("Error fetching orders:", error.message);
+      return res.status(500).json({ error: "Failed to fetch orders" });
     }
   }
 
-  /**
-   * Get a single order by ID with all details
-   * GET /api/v1/orders/:id
-   */
-  static async getOrderById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/orders/date-range
+  // ======================================
+  static async getOrdersByDateRange(req: Request, res: Response) {
     try {
-      const { id } = req.params;
-      const result = await OrderService.getOrderById(id);
-
-      if (!result.success) {
-        const statusCode = result.error?.code === 'ORDER_NOT_FOUND' 
-          ? HttpStatusCode.NOT_FOUND 
-          : HttpStatusCode.INTERNAL_SERVER_ERROR;
-
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
+      const { startDate, endDate, fields } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "startDate and endDate required" });
       }
 
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
+      const selectFields =
+        typeof fields === "string"
+          ? fields
+          : "id,order_date,total_amount,terminal_id";
 
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      const { data, error } = await supabase
+        .from("orders")
+        .select(selectFields)
+        .gte("order_date", startDate as string)
+        .lte("order_date", endDate as string)
+        .order("order_date", { ascending: false });
+
+      if (error) throw error;
+      return res.json({ data });
+    } catch (error: any) {
+      console.error("Error fetching date-range orders:", error.message);
+      return res.status(500).json({ error: "Failed to fetch date-range orders" });
     }
   }
 
-  /**
-   * Create a new order with order items
-   * POST /api/v1/orders
-   */
-  static async createOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/orders/reports/summary
+  // ======================================
+  static async getSalesSummary(req: Request, res: Response) {
     try {
-      const orderData: CreateOrderRequest = req.body;
+      const { data, error } = await supabase
+        .from("orders")
+        .select("total_amount");
 
-      // Validate that order has items
-      if (!orderData.order_items || orderData.order_items.length === 0) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'INVALID_ORDER',
-            message: 'Order must contain at least one item',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      if (error) throw error;
 
-      const result = await OrderService.createOrder(orderData);
+      const totalRevenue =
+        data?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+      const totalOrders = data?.length || 0;
 
-      if (!result.success) {
-        let statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
-        
-        if (result.error?.code === 'VALIDATION_ERROR') {
-          statusCode = HttpStatusCode.BAD_REQUEST;
-        } else if (result.error?.code === 'PRODUCT_NOT_FOUND') {
-          statusCode = HttpStatusCode.BAD_REQUEST;
-        }
-
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.CREATED).json(response);
-    } catch (error) {
-      next(error);
+      return res.json({ totalRevenue, totalOrders });
+    } catch (error: any) {
+      console.error("Error generating sales summary:", error.message);
+      return res.status(500).json({ error: "Failed to generate sales summary" });
     }
   }
 
-  /**
-   * Get orders by POS terminal
-   * GET /api/v1/orders/terminal/:terminalId
-   */
-  static async getOrdersByTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/orders/terminal/:terminalId
+  // ======================================
+  static async getOrdersByTerminal(req: Request, res: Response) {
     try {
       const { terminalId } = req.params;
-      const queryParams: OrderQueryParams = {
-        page: parseInt(req.query['page'] as string) || 1,
-        limit: Math.min(parseInt(req.query['limit'] as string) || 20, 100),
-        start_date: req.query['start_date'] as string,
-        end_date: req.query['end_date'] as string,
-        order_status: req.query['order_status'] as any,
-        payment_method: req.query['payment_method'] as any,
-      };
+      const { limit = "50", fields } = req.query;
+      const limitNum = Math.min(parseInt(limit as string, 10) || 50, 200);
 
-      const result = await OrderService.getOrdersByTerminal(terminalId, queryParams);
+      const selectFields =
+        typeof fields === "string"
+          ? fields
+          : "id,order_date,total_amount,terminal_id";
 
-      if (!result.success) {
-        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      const { data, error } = await supabase
+        .from("orders")
+        .select(selectFields)
+        .eq("terminal_id", terminalId)
+        .order("order_date", { ascending: false })
+        .limit(limitNum);
 
-      res.status(HttpStatusCode.OK).json(result.data);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.json({ data });
+    } catch (error: any) {
+      console.error("Error fetching terminal orders:", error.message);
+      return res.status(500).json({ error: "Failed to fetch terminal orders" });
     }
   }
 
-  /**
-   * Get orders by date range
-   * GET /api/v1/orders/date-range
-   */
-  static async getOrdersByDateRange(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/orders/:id
+  // ======================================
+  static async getOrderById(req: Request, res: Response) {
     try {
-      const startDate = req.query['start_date'] as string;
-      const endDate = req.query['end_date'] as string;
+      const { id } = req.params;
 
-      if (!startDate || !endDate) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'MISSING_DATE_RANGE',
-            message: 'Both start_date and end_date are required',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*, order_items(*)") // assumes relation exists
+        .eq("id", id)
+        .single();
 
-      const queryParams: OrderQueryParams = {
-        page: parseInt(req.query['page'] as string) || 1,
-        limit: Math.min(parseInt(req.query['limit'] as string) || 20, 100),
-        pos_terminal_id: req.query['pos_terminal_id'] as string,
-        order_status: req.query['order_status'] as any,
-        payment_method: req.query['payment_method'] as any,
-      };
-
-      const result = await OrderService.getOrdersByDateRange(startDate, endDate, queryParams);
-
-      if (!result.success) {
-        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      res.status(HttpStatusCode.OK).json(result.data);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.json({ data });
+    } catch (error: any) {
+      console.error("Error fetching order by ID:", error.message);
+      return res.status(500).json({ error: "Failed to fetch order details" });
     }
   }
 
-  /**
-   * Get sales summary for reporting
-   * GET /api/v1/orders/reports/summary
-   */
-  static async getSalesSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // POST /api/v1/orders
+  // ======================================
+  static async createOrder(req: Request, res: Response) {
     try {
-      const startDate = req.query['start_date'] as string;
-      const endDate = req.query['end_date'] as string;
-
-      if (!startDate || !endDate) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'MISSING_DATE_RANGE',
-            message: 'Both start_date and end_date are required for sales summary',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
+      const { order, items } = req.body;
+      if (!order || !items) {
+        return res.status(400).json({ error: "Order and items required" });
       }
 
-      const result = await OrderService.getSalesSummary(startDate, endDate);
+      // Insert order
+      const { data: newOrder, error: orderError } = await supabase
+        .from("orders")
+        .insert(order)
+        .select()
+        .single();
 
-      if (!result.success) {
-        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      if (orderError) throw orderError;
 
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
+      // Insert items
+      const itemsWithOrderId = items.map((item: any) => ({
+        ...item,
+        order_id: newOrder.id,
+      }));
 
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(itemsWithOrderId);
+
+      if (itemsError) throw itemsError;
+
+      return res.status(201).json({ order: newOrder, items: itemsWithOrderId });
+    } catch (error: any) {
+      console.error("Error creating order:", error.message);
+      return res.status(500).json({ error: "Failed to create order" });
     }
   }
 }

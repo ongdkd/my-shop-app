@@ -1,468 +1,285 @@
-import { Request, Response, NextFunction } from 'express';
-import { POSTerminalService } from '../services/posTerminalService';
-import { 
-  SuccessResponse, 
-  CreatePOSTerminalRequest,
-  UpdatePOSTerminalRequest,
-  HttpStatusCode 
-} from '../types';
+// controllers/posTerminalController.ts
+import { Request, Response } from "express";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export class POSTerminalController {
-  /**
-   * Get all POS terminals
-   * GET /api/v1/pos-terminals
-   */
-  static async getAllTerminals(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/pos-terminals
+  // Supports: ?active=true, ?fields, ?limit
+  // ======================================
+  static async getAllTerminals(req: Request, res: Response) {
     try {
-      const activeOnly = req.query['active'] === 'true';
-      
-      const result = activeOnly 
-        ? await POSTerminalService.getActiveTerminals()
-        : await POSTerminalService.getAllTerminals();
+      const { active, limit = "100", fields } = req.query;
+      const limitNum = Math.min(parseInt(limit as string, 10) || 100, 200);
 
-      if (!result.success) {
-        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
+      const selectFields =
+        typeof fields === "string"
+          ? fields
+          : "id,terminal_name,is_active,configuration";
+
+      let query = supabase.from("pos_terminals").select(selectFields);
+
+      if (active === "true") {
+        query = query.eq("is_active", true);
       }
 
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
+      const { data, error } = await query.limit(limitNum);
 
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.json({ data });
+    } catch (error: any) {
+      console.error("Error fetching POS terminals:", error.message);
+      return res.status(500).json({ error: "Failed to fetch POS terminals" });
     }
   }
 
-  /**
-   * Get a single POS terminal by ID
-   * GET /api/v1/pos-terminals/:id
-   */
-  static async getTerminalById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/pos-terminals/:id
+  // ======================================
+  static async getTerminalById(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const result = await POSTerminalService.getTerminalById(id);
 
-      if (!result.success) {
-        const statusCode = result.error?.code === 'TERMINAL_NOT_FOUND' 
-          ? HttpStatusCode.NOT_FOUND 
-          : HttpStatusCode.INTERNAL_SERVER_ERROR;
+      const { data, error } = await supabase
+        .from("pos_terminals")
+        .select("id,terminal_name,is_active,configuration")
+        .eq("id", id)
+        .single();
 
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
+      if (error) throw error;
+      if (!data) {
+        return res.status(404).json({ error: "Terminal not found" });
       }
 
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      return res.json({ data });
+    } catch (error: any) {
+      console.error("Error fetching terminal by ID:", error.message);
+      return res.status(500).json({ error: "Failed to fetch terminal" });
     }
   }
 
-  /**
-   * Create a new POS terminal
-   * POST /api/v1/pos-terminals
-   */
-  static async createTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const terminalData: CreatePOSTerminalRequest = req.body;
-      const result = await POSTerminalService.createTerminal(terminalData);
-
-      if (!result.success) {
-        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.CREATED).json(response);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Update a POS terminal
-   * PUT /api/v1/pos-terminals/:id
-   */
-  static async updateTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/pos-terminals/:id/configuration
+  // ======================================
+  static async getTerminalConfiguration(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const terminalData: UpdatePOSTerminalRequest = req.body;
-      
-      const result = await POSTerminalService.updateTerminal(id, terminalData);
 
-      if (!result.success) {
-        const statusCode = result.error?.code === 'TERMINAL_NOT_FOUND' 
-          ? HttpStatusCode.NOT_FOUND 
-          : HttpStatusCode.INTERNAL_SERVER_ERROR;
+      const { data, error } = await supabase
+        .from("pos_terminals")
+        .select("configuration")
+        .eq("id", id)
+        .single();
 
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
+      if (error) throw error;
+      if (!data) {
+        return res.status(404).json({ error: "Configuration not found" });
       }
 
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      return res.json({ configuration: data.configuration });
+    } catch (error: any) {
+      console.error("Error fetching terminal configuration:", error.message);
+      return res.status(500).json({ error: "Failed to fetch configuration" });
     }
   }
 
-  /**
-   * Delete a POS terminal (soft delete)
-   * DELETE /api/v1/pos-terminals/:id
-   */
-  static async deleteTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/pos-terminals/:id/stats
+  // Example: count orders & total sales for a terminal
+  // ======================================
+  static async getTerminalStats(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const result = await POSTerminalService.deleteTerminal(id);
 
-      if (!result.success) {
-        res.status(HttpStatusCode.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      const { data, error } = await supabase
+        .from("orders")
+        .select("total_amount", { count: "exact" })
+        .eq("terminal_id", id);
 
-      // Return 204 No Content for successful deletion
-      res.status(HttpStatusCode.NO_CONTENT).send();
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+
+      const totalOrders = data?.length || 0;
+      const totalRevenue =
+        data?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+
+      return res.json({ totalOrders, totalRevenue });
+    } catch (error: any) {
+      console.error("Error fetching terminal stats:", error.message);
+      return res.status(500).json({ error: "Failed to fetch terminal stats" });
     }
   }
 
-  /**
-   * Get terminal configuration
-   * GET /api/v1/pos-terminals/:id/configuration
-   */
-  static async getTerminalConfiguration(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // GET /api/v1/pos-terminals/:id/products
+  // ======================================
+  static async getTerminalProducts(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const result = await POSTerminalService.getTerminalConfiguration(id);
 
-      if (!result.success) {
-        const statusCode = result.error?.code === 'TERMINAL_NOT_FOUND' 
-          ? HttpStatusCode.NOT_FOUND 
-          : HttpStatusCode.INTERNAL_SERVER_ERROR;
+      const { data, error } = await supabase
+        .from("terminal_products")
+        .select("product_id, products(*)") // assumes relation products(id,...)
+        .eq("terminal_id", id);
 
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.json({ data });
+    } catch (error: any) {
+      console.error("Error fetching terminal products:", error.message);
+      return res.status(500).json({ error: "Failed to fetch terminal products" });
     }
   }
 
-  /**
-   * Update terminal configuration
-   * PUT /api/v1/pos-terminals/:id/configuration
-   */
-  static async updateTerminalConfiguration(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // POST /api/v1/pos-terminals
+  // ======================================
+  static async createTerminal(req: Request, res: Response) {
     try {
-      const { id } = req.params;
-      const configuration = req.body;
+      const terminal = req.body;
 
-      // Validate that configuration is an object
-      if (!configuration || typeof configuration !== 'object') {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'INVALID_CONFIGURATION',
-            message: 'Configuration must be a valid object',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      const { data, error } = await supabase
+        .from("pos_terminals")
+        .insert(terminal)
+        .select()
+        .single();
 
-      const result = await POSTerminalService.updateTerminalConfiguration(id, configuration);
-
-      if (!result.success) {
-        const statusCode = result.error?.code === 'TERMINAL_NOT_FOUND' 
-          ? HttpStatusCode.NOT_FOUND 
-          : HttpStatusCode.INTERNAL_SERVER_ERROR;
-
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.status(201).json({ data });
+    } catch (error: any) {
+      console.error("Error creating terminal:", error.message);
+      return res.status(500).json({ error: "Failed to create terminal" });
     }
   }
 
-  /**
-   * Get terminal statistics
-   * GET /api/v1/pos-terminals/:id/stats
-   */
-  static async getTerminalStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // PUT /api/v1/pos-terminals/:id
+  // ======================================
+  static async updateTerminal(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const days = parseInt(req.query['days'] as string) || 30;
+      const updates = req.body;
 
-      // Validate days parameter
-      if (days < 1 || days > 365) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'INVALID_DAYS_PARAMETER',
-            message: 'Days parameter must be between 1 and 365',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      const { data, error } = await supabase
+        .from("pos_terminals")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
 
-      const result = await POSTerminalService.getTerminalStats(id, days);
-
-      if (!result.success) {
-        const statusCode = result.error?.code === 'TERMINAL_NOT_FOUND' 
-          ? HttpStatusCode.NOT_FOUND 
-          : HttpStatusCode.INTERNAL_SERVER_ERROR;
-
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.json({ data });
+    } catch (error: any) {
+      console.error("Error updating terminal:", error.message);
+      return res.status(500).json({ error: "Failed to update terminal" });
     }
   }
 
-  /**
-   * Get products assigned to a terminal
-   * GET /api/v1/pos-terminals/:id/products
-   */
-  static async getTerminalProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // PUT /api/v1/pos-terminals/:id/configuration
+  // ======================================
+  static async updateTerminalConfiguration(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const result = await POSTerminalService.getTerminalProducts(id);
+      const { configuration } = req.body;
 
-      if (!result.success) {
-        const statusCode = result.error?.code === 'TERMINAL_NOT_FOUND' 
-          ? HttpStatusCode.NOT_FOUND 
-          : HttpStatusCode.INTERNAL_SERVER_ERROR;
+      const { data, error } = await supabase
+        .from("pos_terminals")
+        .update({ configuration })
+        .eq("id", id)
+        .select("configuration")
+        .single();
 
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const response: SuccessResponse = {
-        success: true,
-        data: result.data,
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.json({ configuration: data.configuration });
+    } catch (error: any) {
+      console.error("Error updating terminal configuration:", error.message);
+      return res.status(500).json({ error: "Failed to update configuration" });
     }
   }
 
-  /**
-   * Assign products to a terminal (bulk operation)
-   * POST /api/v1/pos-terminals/:id/products
-   */
-  static async assignProductsToTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // DELETE /api/v1/pos-terminals/:id
+  // Soft delete (set is_active = false)
+  // ======================================
+  static async deleteTerminal(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { productIds } = req.body;
 
-      // Validate request body
-      if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'INVALID_REQUEST_BODY',
-            message: 'productIds must be a non-empty array of product IDs',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      const { data, error } = await supabase
+        .from("pos_terminals")
+        .update({ is_active: false })
+        .eq("id", id)
+        .select()
+        .single();
 
-      // Validate that all productIds are strings (UUIDs)
-      const invalidIds = productIds.filter(id => typeof id !== 'string' || !id.trim());
-      if (invalidIds.length > 0) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'INVALID_PRODUCT_IDS',
-            message: 'All product IDs must be valid strings',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const result = await POSTerminalService.assignProductsToTerminal(id, productIds);
-
-      if (!result.success) {
-        let statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
-        
-        if (result.error?.code === 'TERMINAL_NOT_FOUND') {
-          statusCode = HttpStatusCode.NOT_FOUND;
-        } else if (result.error?.code === 'PRODUCTS_NOT_FOUND' || result.error?.code === 'INVALID_INPUT') {
-          statusCode = HttpStatusCode.BAD_REQUEST;
-        }
-
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const response: SuccessResponse = {
-        success: true,
-        data: { message: 'Products assigned successfully' },
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.json({ message: "Terminal deactivated", data });
+    } catch (error: any) {
+      console.error("Error deleting terminal:", error.message);
+      return res.status(500).json({ error: "Failed to delete terminal" });
     }
   }
 
-  /**
-   * Remove products from a terminal (bulk operation)
-   * DELETE /api/v1/pos-terminals/:id/products
-   */
-  static async removeProductsFromTerminal(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // ======================================
+  // POST /api/v1/pos-terminals/:id/products
+  // Bulk assign products to terminal
+  // Body: { product_ids: [...] }
+  // ======================================
+  static async assignProductsToTerminal(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { productIds } = req.body;
+      const { product_ids } = req.body;
 
-      // Validate request body
-      if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'INVALID_REQUEST_BODY',
-            message: 'productIds must be a non-empty array of product IDs',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
+      if (!Array.isArray(product_ids) || product_ids.length === 0) {
+        return res.status(400).json({ error: "product_ids must be a non-empty array" });
       }
 
-      // Validate that all productIds are strings (UUIDs)
-      const invalidIds = productIds.filter(id => typeof id !== 'string' || !id.trim());
-      if (invalidIds.length > 0) {
-        res.status(HttpStatusCode.BAD_REQUEST).json({
-          success: false,
-          error: {
-            code: 'INVALID_PRODUCT_IDS',
-            message: 'All product IDs must be valid strings',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return;
+      const rows = product_ids.map((pid: string) => ({
+        terminal_id: id,
+        product_id: pid,
+      }));
+
+      const { data, error } = await supabase
+        .from("terminal_products")
+        .insert(rows);
+
+      if (error) throw error;
+      return res.status(201).json({ data });
+    } catch (error: any) {
+      console.error("Error assigning products:", error.message);
+      return res.status(500).json({ error: "Failed to assign products" });
+    }
+  }
+
+  // ======================================
+  // DELETE /api/v1/pos-terminals/:id/products
+  // Bulk remove products from terminal
+  // Body: { product_ids: [...] }
+  // ======================================
+  static async removeProductsFromTerminal(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { product_ids } = req.body;
+
+      if (!Array.isArray(product_ids) || product_ids.length === 0) {
+        return res.status(400).json({ error: "product_ids must be a non-empty array" });
       }
 
-      const result = await POSTerminalService.removeProductsFromTerminal(id, productIds);
+      const { error } = await supabase
+        .from("terminal_products")
+        .delete()
+        .eq("terminal_id", id)
+        .in("product_id", product_ids);
 
-      if (!result.success) {
-        let statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
-        
-        if (result.error?.code === 'TERMINAL_NOT_FOUND') {
-          statusCode = HttpStatusCode.NOT_FOUND;
-        } else if (result.error?.code === 'INVALID_INPUT') {
-          statusCode = HttpStatusCode.BAD_REQUEST;
-        }
-
-        res.status(statusCode).json({
-          success: false,
-          error: result.error,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const response: SuccessResponse = {
-        success: true,
-        data: { message: 'Products removed successfully' },
-        timestamp: new Date().toISOString(),
-      };
-
-      res.status(HttpStatusCode.OK).json(response);
-    } catch (error) {
-      next(error);
+      if (error) throw error;
+      return res.json({ message: "Products removed successfully" });
+    } catch (error: any) {
+      console.error("Error removing products:", error.message);
+      return res.status(500).json({ error: "Failed to remove products" });
     }
   }
 }
